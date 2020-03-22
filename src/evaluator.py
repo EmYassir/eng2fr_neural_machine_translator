@@ -75,7 +75,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
             if word in inp_lang_model.vocab.keys():
                 tokens.append(inp_lang_model.vocab[word].index + 1)
             else:  # treat word as unknown if not in language model
-                tokens.append(inp_lang_model.wv.vocab["<unk>"].index + 1)
+                tokens.append(inp_lang_model.vocab["<unk>"].index + 1)
         tensor = tf.convert_to_tensor(tokens)
         tensor = tf.reshape(tensor, (1, -1))
         result = ''
