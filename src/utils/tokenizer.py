@@ -93,6 +93,10 @@ def tokenize(current_file, output, tokenizer, keep_case, keep_empty_lines, newli
                 if any([reg.match(line) for reg in regs]):
                     regex_skipped += 1
                     continue
+                # TODO Maybe remove those 2 added lines if re-running on unaligned data
+                line = re.sub(r'\s?’\s?', "’", line)
+                line = re.sub(r'\s?\'\s?', "'", line)
+
                 tokens = tokenizer(line.strip())
                 out_tokenized_stream.write(' '.join([token.text for token in tokens]) + separator)
     return tot_lines, empty_skipped, regex_skipped

@@ -27,11 +27,12 @@ def word2vec(tokens_path: str, output: str, size: int = 100, window: int = 5, mi
     # summarize the loaded model
     print(model)
     # save model
-    model.save(f'{output}_{size}.bin')
+    model.wv.save(f'{output}_{size}.bin')
 
 
 if __name__ == "__main__":
     # change path and parameters if necessary
-    word2vec("data/no_punctuation/unaligned.fr",
-             "embedding_models/Word2Vec/french_w2v",
-             workers=8, min_count=1)
+    word2vec("data/no_punctuation/start_end_french",
+             "src/embedding_models/word2vec/french_w2v",
+             size=200,
+             workers=8, min_count=5)
