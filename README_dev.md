@@ -22,4 +22,12 @@ python -m pytest
 # PR
 All change to the master branch should be made through a pull request. 
 The approval of one collaborator is mandatory for a PR to be merged to the master branch.
-The PR should pass the flake8 and pytest auto-runs without failure before being merged to master.
+The PR should pass the flake8 and pytest auto-runs without failure before being merged to master. 
+
+# Steps to reproduce training
+* Tokenize the unaligned data in both language and remove punctuation.
+* Add <start> and <end> tokens for each line
+* Train a language model (ex: Word2Vec with the src.word_embeddings_models/word2vec.py script) on both languages
+* Tokenize the .lang2 files and remove punctuation to have a vocabulary similar to language model
+* Run the train.py script with training.lang1 and the cleaned version of training.lang2
+* You can then evaluate the model by feeding it the validation.lang1 file and compute the blue score on the validation.lang2 or its cleaned version.
