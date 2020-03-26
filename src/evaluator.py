@@ -1,18 +1,18 @@
 """
-Generate predictions from model and evaluate bleu score
+Generate predictions from model and evaluate BLEU score
 """
 import argparse
+import json
 import os
 import subprocess
 import tempfile
 
-import numpy as np
 import tensorflow as tf
-from gensim.models import KeyedVectors
+import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
-from src.models.attention_gru import Decoder, Encoder
-from src.utils.data_utils import preprocess_sentence
+from src.models.Transformer import Transformer
+from src.utils.transformer_utils import translate
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -34,105 +34,65 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
         pred_file_path: the file path where to store the predictions.
     Returns: None
     """
-    DEBUG = True  # Write predictions to debug_predictions if True
-    BATCH_SIZE = 64
-    embedding_dim = 200
-    units = 512
+    config_path = "config_files/transformer_eval_cfg.json"
+    assert os.path.isfile(config_path), f"invalid config file: {config_path}"
+    with open(config_path, "r") as config_file:
+        config = json.load(config_file)
 
-    # Importing language model
-    inp_lang_model = KeyedVectors.load("src/embedding_models/word2vec/english_w2v_200.bin", mmap='r')
-    # Add unknown token to input vocabulary with mean vector as value
-    inp_mean_vector = np.mean(inp_lang_model[list(inp_lang_model.vocab.keys())], axis=0)
-    inp_lang_model.add(["<unk>"], [inp_mean_vector])
-    vocab_inp_size = len(inp_lang_model.vocab.keys())
+    debug = config["debug"]  # Write predictions to debug_predictions if True
+    # Set hyperparameters
+    num_layers = config["num_layers"]
+    d_model = config["d_model"]
+    dff = config["dff"]
+    num_heads = config["num_heads"]
+    tokenizer_en_path = config["tokenizer_en_path"]
+    tokenizer_fr_path = config["tokenizer_fr_path"]
+    dropout_rate = config["dropout_rate"]
+    checkpoint_path_best = config["checkpoint_path_best"]
 
-    targ_lang_model = KeyedVectors.load("src/embedding_models/word2vec/french_w2v_200.bin", mmap='r')
-    # Add unknown token to target vocabulary with mean vector as value
-    targ_mean_vector = np.mean(targ_lang_model[list(targ_lang_model.vocab.keys())], axis=0)
-    targ_lang_model.add(["<unk>"], [targ_mean_vector])
-    vocab_tar_size = len(targ_lang_model.vocab.keys())
+    tokenizer_en = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_en_path)
+    tokenizer_fr = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_fr_path)
 
-    encoder = Encoder(vocab_inp_size, embedding_dim, units, BATCH_SIZE, inp_lang_model)
-    decoder = Decoder(vocab_tar_size, embedding_dim, units, BATCH_SIZE, targ_lang_model)
-    optimizer = tf.keras.optimizers.Adam()
-    checkpoint_dir = './training_checkpoints'
-    checkpoint = tf.train.Checkpoint(optimizer=optimizer,
-                                     encoder=encoder,
-                                     decoder=decoder)
-    checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir)).expect_partial()
+    input_vocab_size = tokenizer_en.vocab_size + 2
+    target_vocab_size = tokenizer_fr.vocab_size + 2
 
-    def evaluate(sentence: str, max_length_targ: int) -> str:
-        """
-        Translate a sentence from english to french
-        :param sentence: input sentence
-        :param max_length_targ: maximum length of translation output
-        :return: the sentence translated in french
-        """
-        sentence = preprocess_sentence(sentence)
-        tokens = []
-        for word in sentence.split():
-            # transform word to its index (with +1 offset) in the language model
-            if word in inp_lang_model.vocab.keys():
-                tokens.append(inp_lang_model.vocab[word].index + 1)
-            else:  # treat word as unknown if not in language model
-                tokens.append(inp_lang_model.vocab["<unk>"].index + 1)
-        tensor = tf.convert_to_tensor(tokens)
-        tensor = tf.reshape(tensor, (1, -1))
-        result = ''
+    transformer = Transformer(num_layers, d_model, num_heads, dff,
+                              input_vocab_size, target_vocab_size,
+                              pe_input=input_vocab_size,
+                              pe_target=target_vocab_size,
+                              rate=dropout_rate)
 
-        hidden = [tf.zeros((1, units))]
-        enc_out, enc_hidden = encoder(tensor, hidden)
+    ckpt = tf.train.Checkpoint(transformer=transformer)
 
-        dec_hidden = enc_hidden
-        dec_input = tf.expand_dims([targ_lang_model.vocab['<start>'].index + 1], 0)
-
-        for _ in range(max_length_targ):
-            predictions, dec_hidden, _ = decoder(dec_input,
-                                                 dec_hidden,
-                                                 enc_out)
-
-            #  Prevent outputting <unk> (Add +1 to match the decoder embedding indexing
-            unk_idx = targ_lang_model.vocab["<unk>"].index + 1
-            predictions = predictions.numpy()
-            predicted_id = np.argmax(predictions[0])
-            predictions[0, unk_idx] = -1e9
-            predicted_id_no_unk = np.argmax(predictions[0])
-            predicted_word_no_unk = targ_lang_model.index2word[predicted_id_no_unk-1]
-
-            if targ_lang_model.index2word[predicted_id-1] == '<end>':
-                result += "\n"
-                return result
-            result += predicted_word_no_unk + ' '
-
-            # the predicted ID is fed back into the model
-            dec_input = tf.expand_dims([predicted_id], 0)
-        result += '\n'  # add end token if max length reached
-        return result
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path_best, max_to_keep=5)
+    # if a checkpoint exists, restore the latest checkpoint.
+    if ckpt_manager.latest_checkpoint:
+        ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
+        print('Latest checkpoint restored from ', checkpoint_path_best)
 
     results = []
-    num_lines = sum(1 for line in open(input_file_path))
+    num_lines = sum(1 for _ in open(input_file_path))
+    # TODO check how to make this faster
     with open(input_file_path, "r") as input_file:
         count = 0
-        input_sentence = input_file.readline()
+        input_sentence = input_file.readline().strip()
         while input_sentence:
             if count % 100 == 0:
                 print(f"{count}/{num_lines}")
-            # Predict maximum length of 1.25 time the input length
+            # Predict maximum length of 1.5 time the input length
             # TODO See if there's a better heuristic
-            max_length_targ = int(len(input_sentence.split()) * 1.25)
-            result = evaluate(input_sentence, max_length_targ)
+            max_length = int(len(tokenizer_en.encode(input_sentence)) * 1.5)
+            result = translate(input_sentence, tokenizer_en, tokenizer_fr, max_length, transformer)
             results.append(result)
             count += 1
             input_sentence = input_file.readline()
-
     with open(pred_file_path, "w") as pred_file:
         for result in results:
-            pred_file.write(result)
-    if DEBUG:
-        with open("debug_predictions", "w") as pred_file:
+            pred_file.write(result + '\n')
+    if debug:
+        with open("debug_predictions", "w") as debug_file:
             for result in results:
-                pred_file.write(result)
-
+                debug_file.write(result + '\n')
     # MODIFY ABOVE #####
 
 
