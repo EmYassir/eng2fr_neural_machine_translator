@@ -61,7 +61,7 @@ def main(config_path: str):
 
     try:
         tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
-        logging.info(f"Loaded english tokenizer from {tokenizer_source_path}")
+        logging.info(f"Loaded source tokenizer from {tokenizer_source_path}")
     except NotFoundError:
         logging.info(f"Could not find source tokenizer in {tokenizer_source_path}, building tokenizer...")
         tokenizer_source = build_tokenizer(source_input_files, target_vocab_size=source_target_vocab_size)
