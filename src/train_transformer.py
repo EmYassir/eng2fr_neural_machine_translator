@@ -31,21 +31,21 @@ def main(config_path: str):
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
-    english_unaligned = config["english_unaligned"]
-    english_training = config["english_training"]
-    english_validation = config["english_validation"]
-    english_target_vocab_size = config["english_target_vocab_size"]
-    english_input_files = [english_unaligned, english_training]
+    source_unaligned = config["source_unaligned"]
+    source_training = config["source_training"]
+    source_validation = config["source_validation"]
+    source_target_vocab_size = config["source_target_vocab_size"]
+    source_input_files = [source_unaligned, source_training]
 
-    french_unaligned = config["french_unaligned"]
-    french_training = config["french_training"]
-    french_validation = config["french_validation"]
-    french_target_vocab_size = config["french_target_vocab_size"]
+    target_unaligned = config["target_unaligned"]
+    target_training = config["target_training"]
+    target_validation = config["target_validation"]
+    target_target_vocab_size = config["target_target_vocab_size"]
 
-    french_input_files = [french_unaligned, french_training]
+    target_input_files = [target_unaligned, target_training]
 
-    tokenizer_en_path = config["tokenizer_en_path"]
-    tokenizer_fr_path = config["tokenizer_fr_path"]
+    tokenizer_source_path = config["tokenizer_source_path"]
+    tokenizer_target_path = config["tokenizer_target_path"]
 
     # Set hyperparameters
     num_layers = config["num_layers"]
@@ -60,46 +60,46 @@ def main(config_path: str):
     checkpoint_path_best = config["checkpoint_path_best"]
 
     try:
-        tokenizer_en = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_en_path)
-        logging.info(f"Loaded english tokenizer from {tokenizer_en_path}")
+        tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
+        logging.info(f"Loaded english tokenizer from {tokenizer_source_path}")
     except NotFoundError:
-        logging.info(f"Could not find english tokenizer in {tokenizer_en_path}, building tokenizer...")
-        tokenizer_en = build_tokenizer(english_input_files, target_vocab_size=english_target_vocab_size)
-        tokenizer_en.save_to_file(tokenizer_en_path)
-        logging.info(f"English tokenizer saved to {tokenizer_en_path}")
+        logging.info(f"Could not find source tokenizer in {tokenizer_source_path}, building tokenizer...")
+        tokenizer_source = build_tokenizer(source_input_files, target_vocab_size=source_target_vocab_size)
+        tokenizer_source.save_to_file(tokenizer_source_path)
+        logging.info(f"Source tokenizer saved to {tokenizer_source_path}")
 
     try:
-        tokenizer_fr = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_fr_path)
-        logging.info(f"Loaded french tokenizer from {tokenizer_fr_path}")
+        tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
+        logging.info(f"Loaded target tokenizer from {tokenizer_target_path}")
     except NotFoundError:
-        logging.info(f"Could not find french tokenizer in {tokenizer_fr_path}, building tokenizer...")
-        tokenizer_fr = build_tokenizer(french_input_files, target_vocab_size=french_target_vocab_size)
-        tokenizer_fr.save_to_file(tokenizer_fr_path)
-        logging.info(f"French tokenizer saved to {tokenizer_fr_path}")
+        logging.info(f"Could not find target tokenizer in {tokenizer_target_path}, building tokenizer...")
+        tokenizer_target = build_tokenizer(target_input_files, target_vocab_size=target_target_vocab_size)
+        tokenizer_target.save_to_file(tokenizer_target_path)
+        logging.info(f"French tokenizer saved to {tokenizer_target_path}")
 
-    with open(english_training) as train_en:
-        buffer_size = sum([1 for line in train_en.readlines()])
+    with open(source_training) as train_source:
+        buffer_size = sum([1 for line in train_source.readlines()])
 
-    def encode(english, french):
+    def encode(source, target):
         # Add start and end token
-        english_tokenized = [tokenizer_en.vocab_size] + tokenizer_en.encode(
-            english.numpy()) + [tokenizer_en.vocab_size + 1]
+        source_tokenized = [tokenizer_source.vocab_size] + tokenizer_source.encode(
+            source.numpy()) + [tokenizer_source.vocab_size + 1]
 
-        french_tokenized = [tokenizer_fr.vocab_size] + tokenizer_fr.encode(
-            french.numpy()) + [tokenizer_fr.vocab_size + 1]
+        target_tokenized = [tokenizer_target.vocab_size] + tokenizer_target.encode(
+            target.numpy()) + [tokenizer_target.vocab_size + 1]
 
-        return english_tokenized, french_tokenized
+        return source_tokenized, target_tokenized
 
-    def tf_encode(english, french):
+    def tf_encode(source, target):
         # encapsulate our encode function in a tf functions so it can be called on tf tensor
-        result_en, result_fr = tf.py_function(encode, [english, french], [tf.int64, tf.int64])
-        result_en.set_shape([None])
-        result_fr.set_shape([None])
+        result_source, result_target = tf.py_function(encode, [source, target], [tf.int64, tf.int64])
+        result_source.set_shape([None])
+        result_target.set_shape([None])
 
-        return result_en, result_fr
+        return result_source, result_target
 
-    train_examples = create_transformer_dataset(english_training, french_training, num_examples)
-    validation_examples = create_transformer_dataset(english_validation, french_validation, None)
+    train_examples = create_transformer_dataset(source_training, target_training, num_examples)
+    validation_examples = create_transformer_dataset(source_validation, target_validation, None)
 
     train_preprocessed = (
         # cache the dataset to memory to get a speedup while reading from it.
@@ -115,8 +115,8 @@ def main(config_path: str):
     val_dataset = (val_preprocessed
                    .padded_batch(1000, padded_shapes=([None], [None])))
 
-    input_vocab_size = tokenizer_en.vocab_size + 2
-    target_vocab_size = tokenizer_fr.vocab_size + 2
+    source_vocab_size = tokenizer_source.vocab_size + 2
+    target_vocab_size = tokenizer_target.vocab_size + 2
 
     # Use the Adam optimizer with a custom learning rate scheduler according to the formula
     # in the paper (https://arxiv.org/abs/1706.03762)
@@ -144,8 +144,8 @@ def main(config_path: str):
         name='val_accuracy')
 
     transformer = Transformer(num_layers, d_model, num_heads, dff,
-                              input_vocab_size, target_vocab_size,
-                              pe_input=input_vocab_size,
+                              source_vocab_size, target_vocab_size,
+                              pe_input=source_vocab_size,
                               pe_target=target_vocab_size,
                               rate=dropout_rate)
 
@@ -204,6 +204,7 @@ def main(config_path: str):
 
         val_loss(loss)
         val_accuracy(tar_real, predictions)
+
     best_val_accuracy = 0
     for epoch in range(epochs):
         start = time.time()

@@ -49,7 +49,7 @@ def create_masks(inp, tar):
     return enc_padding_mask, combined_mask, dec_padding_mask
 
 
-def evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer):
+def evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length_pred, transformer):
     start_token = [tokenizer_en.vocab_size]
     end_token = [tokenizer_en.vocab_size + 1]
 
@@ -62,7 +62,7 @@ def evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer):
     decoder_input = [tokenizer_fr.vocab_size]
     output = tf.expand_dims(decoder_input, 0)
 
-    for i in range(max_length):
+    for i in range(max_length_pred):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, output)
 
@@ -124,11 +124,10 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_en, tok
     plt.show()
 
 
-def translate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer, plot=False):
-    result, attention_weights = evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer)
+def translate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer, plot=False):
+    result, attention_weights = evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer)
 
-    predicted_sentence = tokenizer_fr.decode([i for i in result
-                                              if i < tokenizer_fr.vocab_size])
+    predicted_sentence = tokenizer_target.decode([i for i in result if i < tokenizer_target.vocab_size])
     if plot:
-        plot_attention_weights(attention_weights, inp_sentence, result, plot, tokenizer_en, tokenizer_fr)
+        plot_attention_weights(attention_weights, inp_sentence, result, plot, tokenizer_source, tokenizer_target)
     return predicted_sentence

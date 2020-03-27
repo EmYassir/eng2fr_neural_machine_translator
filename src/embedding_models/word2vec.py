@@ -32,7 +32,7 @@ def word2vec(tokens_path: str, output: str, size: int = 100, window: int = 5, mi
 
 if __name__ == "__main__":
     # change path and parameters if necessary
-    word2vec("data/no_punctuation/start_end_french",
-             "src/embedding_models/word2vec/french_w2v",
-             size=200,
+    word2vec("data/no_punctuation/start_end_english",
+             "src/embedding_models/word2vec/english_w2v",
+             size=100,
              workers=8, min_count=5)

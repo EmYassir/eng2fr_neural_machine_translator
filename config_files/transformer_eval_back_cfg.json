@@ -1,0 +1,12 @@
+{
+  "debug": true,
+  "num_examples": null,
+  "num_layers": 4,
+  "d_model": 128,
+  "dff": 512,
+  "num_heads": 8,
+  "dropout_rate": 0.1,
+  "checkpoint_path_best": "checkpoints/transformer/back/best",
+  "tokenizer_source_path": "tokenizer_fr_back.save",
+  "tokenizer_target_path": "tokenizer_en_back.save"
+}
