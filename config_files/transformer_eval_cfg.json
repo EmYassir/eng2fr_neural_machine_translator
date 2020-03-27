@@ -7,6 +7,6 @@
   "num_heads": 8,
   "dropout_rate": 0.1,
   "checkpoint_path_best": "checkpoints/transformer/best",
-  "tokenizer_en_path": "tokenizer_en.save",
-  "tokenizer_fr_path": "tokenizer_fr.save"
+  "tokenizer_source_path": "tokenizer_en.save",
+  "tokenizer_target_path": "tokenizer_fr.save"
 }
