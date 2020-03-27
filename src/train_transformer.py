@@ -73,7 +73,7 @@ def main(config_path: str):
         logging.info(f"Loaded target tokenizer from {tokenizer_target_path}")
     except NotFoundError:
         logging.info(f"Could not find target tokenizer in {tokenizer_target_path}, building tokenizer...")
-        tokenizer_target = build_tokenizer(french_target_files, target_vocab_size=target_target_vocab_size)
+        tokenizer_target = build_tokenizer(target_input_files, target_vocab_size=target_target_vocab_size)
         tokenizer_target.save_to_file(tokenizer_target_path)
         logging.info(f"French tokenizer saved to {tokenizer_target_path}")
 
