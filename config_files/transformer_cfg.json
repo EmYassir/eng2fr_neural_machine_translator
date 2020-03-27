@@ -1,5 +1,5 @@
 {
-  "num_examples": null,
+  "num_examples": 2,
   "num_layers": 4,
   "d_model": 128,
   "dff": 512,
@@ -7,16 +7,16 @@
   "dropout_rate": 0.1,
   "batch_size": 64,
   "epochs": 60,
-  "english_unaligned": "data/no_punctuation/unaligned.en",
-  "english_training": "data/training.lang1",
-  "english_validation": "data/validation.lang1",
-  "english_target_vocab_size": 8192,
-  "french_unaligned": "data/unaligned.fr",
-  "french_training": "data/training.lang2",
-  "french_validation": "data/validation.lang2",
-  "french_target_vocab_size": 8192,
+  "source_unaligned": "data/no_punctuation/unaligned.en",
+  "source_training": "data/training.lang1",
+  "source_validation": "data/validation.lang1",
+  "source_target_vocab_size": 8192,
+  "target_unaligned": "data/unaligned.fr",
+  "target_training": "data/training.lang2",
+  "target_validation": "data/validation.lang2",
+  "target_target_vocab_size": 8192,
   "checkpoint_path": "checkpoints/transformer/train",
   "checkpoint_path_best": "checkpoints/transformer/best",
-  "tokenizer_en_path": "tokenizer_en.save",
-  "tokenizer_fr_path": "tokenizer_fr.save"
+  "tokenizer_source_path": "tokenizer_en.save",
+  "tokenizer_target_path": "tokenizer_fr.save"
 }

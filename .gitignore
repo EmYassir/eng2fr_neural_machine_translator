@@ -5,7 +5,11 @@ __pycache__/
 
 #pycharm
 .idea/
-
+data/debug*
+data/training*
+data/validation*
+data/unaligned_all
+tokenizer_en.save.subwords
 # C extensions
 *.so
 

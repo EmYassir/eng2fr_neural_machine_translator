@@ -73,7 +73,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
     results = []
     num_lines = sum(1 for _ in open(input_file_path))
     # TODO check how to make this faster
-    with open(input_file_path, "r") as input_file:
+    with open(input_file_path, "r", encoding="utf-8") as input_file:
         count = 0
         input_sentence = input_file.readline().strip()
         while input_sentence:
