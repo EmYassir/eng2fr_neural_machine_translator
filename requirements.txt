@@ -1,5 +1,7 @@
 gensim==3.5.0
+matplotlib==3.2.0
 numpy==1.16.3
+tensorflow-datasets==2.1.0
 tensorflow-gpu==2.1
 sacrebleu==1.4.3
 setuptools==41.0.1

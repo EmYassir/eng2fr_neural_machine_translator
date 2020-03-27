@@ -5,6 +5,7 @@ Utility functions to manipulate data
 from typing import List, Optional, Tuple
 
 import tensorflow as tf
+import tensorflow_datasets as tfds
 
 
 def preprocess_sentence(sentence: str) -> str:
@@ -56,6 +57,32 @@ def create_dataset(source: str, target: Optional[str], max_seq_length: Optional[
             source_data.append(preprocess_sentence(source_lines[i]))
             target_data.append(preprocess_sentence(target_lines[i]))
     return source_data, target_data
+
+
+def create_transformer_dataset(source: str, target: Optional[str],
+                               num_examples: Optional[int]) -> tf.data.Dataset:
+    """
+    Takes a source and target file and return a dataset
+    :param source: path to source file
+    :param target: path to target file
+    :param num_examples: max number of examples, take all if None
+    :return: tf Dataset object
+    """
+    with open(source, encoding="UTF-8") as source_file:
+        source_lines = source_file.readlines()
+    if target is not None:
+        with open(target, encoding="UTF-8") as target_file:
+            target_lines = target_file.readlines()
+        assert len(source_lines) == len(target_lines)
+    source_data = []
+    target_data = []
+    for source_line in source_lines[:num_examples]:
+        source_data.append(source_line.strip())
+    if target is not None:
+        for target_line in target_lines[:num_examples]:
+            target_data.append(target_line.strip())
+    dataset = tf.data.Dataset.from_tensor_slices((source_data, target_data))
+    return dataset
 
 
 def tokenize(lang: List[str], lang_model: Optional[object]) -> Tuple:
@@ -111,3 +138,13 @@ def load_dataset(input_path: str, target_path: Optional[str], max_seq_length: Op
         target_tensor = []
         targ_lang_tokenizer = None
     return input_tensor, target_tensor, inp_lang_tokenizer, targ_lang_tokenizer
+
+
+def build_tokenizer(files_list, target_vocab_size=2 ** 13):
+    language = []
+    for file in files_list:
+        with open(file) as lang_file:
+            language += lang_file.readlines()
+    tokenizer = tfds.features.text.SubwordTextEncoder.build_from_corpus(
+        (line for line in language), target_vocab_size=target_vocab_size)
+    return tokenizer
