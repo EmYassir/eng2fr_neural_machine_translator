@@ -1,12 +1,12 @@
 {
     "num_examples": null,
-    "input_language_model_path": "src/embedding_models/word2vec/english_w2v_200.bin",
-    "target_language_model_path": "src/embedding_models/word2vec/french_w2v_200.bin",
+    "input_language_model_path": "src/embedding_models/word2vec/english_w2v_100.bin",
+    "target_language_model_path": "src/embedding_models/word2vec/french_w2v_100.bin",
     "train_input_language_path": "data/training.lang1",
     "train_target_language_path": "data/no_punctuation/training.lang2",
     "max_seq_length": 40,
     "batch_size": 64,
-    "embedding_dim": 200,
+    "embedding_dim": 100,
     "units": 512,
     "epochs": 10
 }
