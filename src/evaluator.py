@@ -34,7 +34,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
         pred_file_path: the file path where to store the predictions.
     Returns: None
     """
-    config_path = "config_files/transformer_eval_cfg.json"
+    config_path = "config_files/transformer_eval_back_cfg.json"
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
@@ -45,26 +45,26 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
     d_model = config["d_model"]
     dff = config["dff"]
     num_heads = config["num_heads"]
-    tokenizer_en_path = config["tokenizer_en_path"]
-    tokenizer_fr_path = config["tokenizer_fr_path"]
+    tokenizer_source_path = config["tokenizer_source_path"]
+    tokenizer_target_path = config["tokenizer_target_path"]
     dropout_rate = config["dropout_rate"]
     checkpoint_path_best = config["checkpoint_path_best"]
 
-    tokenizer_en = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_en_path)
-    tokenizer_fr = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_fr_path)
+    tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
+    tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
 
-    input_vocab_size = tokenizer_en.vocab_size + 2
-    target_vocab_size = tokenizer_fr.vocab_size + 2
+    source_vocab_size = tokenizer_source.vocab_size + 2
+    target_vocab_size = tokenizer_target.vocab_size + 2
 
     transformer = Transformer(num_layers, d_model, num_heads, dff,
-                              input_vocab_size, target_vocab_size,
-                              pe_input=input_vocab_size,
+                              source_vocab_size, target_vocab_size,
+                              pe_input=source_vocab_size,
                               pe_target=target_vocab_size,
                               rate=dropout_rate)
 
     ckpt = tf.train.Checkpoint(transformer=transformer)
 
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path_best, max_to_keep=5)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path_best, max_to_keep=1)
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
@@ -81,8 +81,8 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
                 print(f"{count}/{num_lines}")
             # Predict maximum length of 1.5 time the input length
             # TODO See if there's a better heuristic
-            max_length = int(len(tokenizer_en.encode(input_sentence)) * 1.5)
-            result = translate(input_sentence, tokenizer_en, tokenizer_fr, max_length, transformer)
+            max_length_pred = int(len(tokenizer_source.encode(input_sentence)) * 1.5)
+            result = translate(input_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer)
             results.append(result)
             count += 1
             input_sentence = input_file.readline()

@@ -49,20 +49,19 @@ def create_masks(inp, tar):
     return enc_padding_mask, combined_mask, dec_padding_mask
 
 
-def evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer):
-    start_token = [tokenizer_en.vocab_size]
-    end_token = [tokenizer_en.vocab_size + 1]
+def evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer):
+    start_token = [tokenizer_source.vocab_size]
+    end_token = [tokenizer_source.vocab_size + 1]
 
-    # inp sentence is portuguese, hence adding the start and end token
-    inp_sentence = start_token + tokenizer_en.encode(inp_sentence) + end_token
+    # Adding the start and end token to input
+    inp_sentence = start_token + tokenizer_source.encode(inp_sentence) + end_token
     encoder_input = tf.expand_dims(inp_sentence, 0)
 
-    # as the target is english, the first word to the transformer should be the
-    # english start token.
-    decoder_input = [tokenizer_fr.vocab_size]
+    # The first word to the transformer should be the target start token
+    decoder_input = [tokenizer_target.vocab_size]
     output = tf.expand_dims(decoder_input, 0)
 
-    for i in range(max_length):
+    for i in range(max_length_pred):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, output)
 
@@ -80,20 +79,19 @@ def evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer):
         predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
         # return the result if the predicted_id is equal to the end token
-        if predicted_id == tokenizer_fr.vocab_size + 1:
+        if predicted_id == tokenizer_target.vocab_size + 1:
             return tf.squeeze(output, axis=0), attention_weights
 
-        # concatentate the predicted_id to the output which is given to the decoder
-        # as its input.
+        # concatenate the predicted_id to the output which is given to the decoder as its input.
         output = tf.concat([output, predicted_id], axis=-1)
 
     return tf.squeeze(output, axis=0), attention_weights
 
 
-def plot_attention_weights(attention, sentence, result, layer, tokenizer_en, tokenizer_fr):
+def plot_attention_weights(attention, sentence, result, layer, tokenizer_source, tokenizer_target):
     fig = plt.figure(figsize=(16, 8))
 
-    sentence = tokenizer_en.encode(sentence)
+    sentence = tokenizer_source.encode(sentence)
 
     attention = tf.squeeze(attention[layer], axis=0)
 
@@ -111,11 +109,11 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_en, tok
         ax.set_ylim(len(result) - 1.5, -0.5)
 
         ax.set_xticklabels(
-            ['<start>'] + [tokenizer_en.decode([i]) for i in sentence] + ['<end>'],
+            ['<start>'] + [tokenizer_source.decode([i]) for i in sentence] + ['<end>'],
             fontdict=fontdict, rotation=90)
 
-        ax.set_yticklabels([tokenizer_fr.decode([i]) for i in result
-                            if i < tokenizer_fr.vocab_size],
+        ax.set_yticklabels([tokenizer_target.decode([i]) for i in result
+                            if i < tokenizer_target.vocab_size],
                            fontdict=fontdict)
 
         ax.set_xlabel('Head {}'.format(head + 1))
@@ -124,11 +122,10 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_en, tok
     plt.show()
 
 
-def translate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer, plot=False):
-    result, attention_weights = evaluate(inp_sentence, tokenizer_en, tokenizer_fr, max_length, transformer)
+def translate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer, plot=False):
+    result, attention_weights = evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer)
 
-    predicted_sentence = tokenizer_fr.decode([i for i in result
-                                              if i < tokenizer_fr.vocab_size])
+    predicted_sentence = tokenizer_target.decode([i for i in result if i < tokenizer_target.vocab_size])
     if plot:
-        plot_attention_weights(attention_weights, inp_sentence, result, plot, tokenizer_en, tokenizer_fr)
+        plot_attention_weights(attention_weights, inp_sentence, result, plot, tokenizer_source, tokenizer_target)
     return predicted_sentence

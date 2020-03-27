@@ -61,7 +61,7 @@ def main(config_path: str):
 
     try:
         tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
-        logging.info(f"Loaded english tokenizer from {tokenizer_source_path}")
+        logging.info(f"Loaded source tokenizer from {tokenizer_source_path}")
     except NotFoundError:
         logging.info(f"Could not find source tokenizer in {tokenizer_source_path}, building tokenizer...")
         tokenizer_source = build_tokenizer(source_input_files, target_vocab_size=source_target_vocab_size)
@@ -78,7 +78,7 @@ def main(config_path: str):
         logging.info(f"French tokenizer saved to {tokenizer_target_path}")
 
     with open(source_training, "r", encoding="utf-8") as train_source:
-        buffer_size = sum([1 for line in train_source.readlines()])
+        buffer_size = sum([1 for _ in train_source.readlines()])
 
     def encode(source, target):
         # Add start and end token
