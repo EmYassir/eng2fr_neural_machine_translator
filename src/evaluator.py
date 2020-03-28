@@ -25,7 +25,7 @@ session = InteractiveSession(config=tf_config)
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 
-def generate_predictions(input_file_path: str, pred_file_path: str, save_path: str):
+def generate_predictions(input_file_path: str, pred_file_path: str, save_path: str, config_file: str):
     """Generates predictions for the machine translation task (EN->FR).
     You are allowed to modify this function as needed, but one again, you cannot
     modify any other part of this file. We will be importing only this function
@@ -35,11 +35,12 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
         input_file_path: the file path that contains the input data.
         pred_file_path: the file path where to store the predictions.
         save_path: path to directory where models/tokenizers are
+        config_file: name of config file
     Returns: None
     """
     start = time.time()
-    # Change to eval_cfg with parameters of best model
-    config_path = os.path.join(project_root(), "config_files", "transformer_eval_back_cfg.json")
+    print(f"Using config_file={config_file}")
+    config_path = os.path.join(project_root(), "config_files", config_file)
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
@@ -128,6 +129,8 @@ def main():
     parser = argparse.ArgumentParser('script for evaluating a model.')
     parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
     parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
+    parser.add_argument('--config_file', type=str,
+                        help='name of config file in directory config_files/', required=True)
     parser.add_argument('--save_path', type=str, help='path to saved models/tokenizers', default=project_root())
     parser.add_argument('--print-all-scores', help='will print one score per sentence',
                         action='store_true')
@@ -142,7 +145,7 @@ def main():
         compute_bleu(args.input_file_path, args.target_file_path, args.print_all_scores)
     else:
         _, pred_file_path = tempfile.mkstemp()
-        generate_predictions(args.input_file_path, pred_file_path, args.save_path)
+        generate_predictions(args.input_file_path, pred_file_path, args.save_path, args.config_file)
         compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
 
 
