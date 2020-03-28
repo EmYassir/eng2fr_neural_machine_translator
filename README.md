@@ -6,6 +6,7 @@ From the project root folder, type the following command
 ```bash
 python src/train_transformer.py --cfg_path config_files/transformer_cfg.json
 ```
+Note, the content of the data folder should be the same as the data folder of the shared team directory on Helios
 
 ## Evaluate the model
 The generate predictions is currently configured for the transformer model. Make sure the config file path is up

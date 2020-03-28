@@ -1,3 +1,7 @@
+"""
+Train a transformer model to translate from source to target language
+"""
+
 import argparse
 import json
 import logging
@@ -36,7 +40,27 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
     return tokenizer
 
 
-def main(config_path: str, data_path: str, save_path: str):
+def main() -> None:
+    """
+    Train the Transformer model
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cfg_path", type=str,
+                        help="path to the JSON config file used to define train parameters")
+    parser.add_argument('--restore_checkpoint',
+                        help='will restore the latest checkpoint',
+                        action='store_true')
+    parser.add_argument("--data_path", type=str,
+                        help="path to the directory where the data is", default=project_root())
+    parser.add_argument("--save_path", type=str,
+                        help="path to the directory where to save model/tokenizer", default=project_root())
+    args = parser.parse_args()
+    data_path = args.data_path
+    save_path = args.save_path
+    config_path = args.cfg_path
+    restore_checkpoint = args.restore_checkpoint
+
+    tf.random.set_seed(42)  # Set seed for reproducibility
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
@@ -153,13 +177,11 @@ def main(config_path: str, data_path: str, save_path: str):
 
     ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
     ckpt_manager_best = tf.train.CheckpointManager(ckpt, checkpoint_path_best, max_to_keep=1)
-    # TODO allow to restore checkpoint
-    """
-    # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
-      ckpt.restore(ckpt_manager.latest_checkpoint)
-      print ('Latest checkpoint restored!!')
-    """
+    if restore_checkpoint:
+        # if a checkpoint exists, restore the latest checkpoint.
+        if ckpt_manager.latest_checkpoint:
+            ckpt.restore(ckpt_manager.latest_checkpoint)
+            logging.info(f'Latest checkpoint restored from {checkpoint_path}')
 
     train_step_signature = [
         tf.TensorSpec(shape=(None, None), dtype=tf.int64),
@@ -235,20 +257,8 @@ def main(config_path: str, data_path: str, save_path: str):
 
         logging.info(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
-        print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+        logging.info(f"Time taken for 1 epoch: {time.time() - start} secs\n")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg_path", type=str,
-                        help="path to the JSON config file used to define train parameters")
-    parser.add_argument("--data_path", type=str,
-                        help="path to the directory where the data is", default=project_root())
-    parser.add_argument("--save_path", type=str,
-                        help="path to the directory where to save model/tokenizer", default=project_root())
-    args = parser.parse_args()
-    main(
-        config_path=args.cfg_path,
-        data_path=args.data_path,
-        save_path=args.save_path
-    )
+    main()

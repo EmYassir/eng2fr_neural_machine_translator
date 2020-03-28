@@ -1,8 +1,20 @@
+"""
+Utility functions for Transformer model
+"""
+
+from typing import Tuple
+
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import tensorflow_datasets as tfds
+
+from src.models.Transformer import Transformer
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    """
+    Creates custom learning rate scheduler for Transformer
+    """
     def __init__(self, d_model, warmup_steps=4000):
         super(CustomSchedule, self).__init__()
 
@@ -19,6 +31,11 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 
 def create_padding_mask(seq):
+    """
+    Create mask to use padding provided by input sequence
+    :param seq: Input sequence
+    :return: Mask that masks elements where input sequence is 0
+    """
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
 
     # add extra dimensions to add the padding
@@ -27,11 +44,22 @@ def create_padding_mask(seq):
 
 
 def create_look_ahead_mask(size):
+    """
+    Create mask to prevent looking at future elements in decoder
+    :param size: size of sequence
+    :return: Mask that masks future elements in decoder input sequence
+    """
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
     return mask  # (seq_len, seq_len)
 
 
 def create_masks(inp, tar):
+    """
+    Create masks for transformer
+    :param inp: input sequence
+    :param tar: target sequence
+    :return: encoder padding mask, combined_mask and decoder padding mask
+    """
     # Encoder padding mask
     enc_padding_mask = create_padding_mask(inp)
 
@@ -49,7 +77,18 @@ def create_masks(inp, tar):
     return enc_padding_mask, combined_mask, dec_padding_mask
 
 
-def evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer):
+def evaluate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
+             tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
+             transformer: Transformer) -> Tuple:
+    """
+    Takes an input sentence and generate the sequence of tokens for its translation
+    :param inp_sentence: Input sentence in source language
+    :param tokenizer_source: Tokenizer for source language
+    :param tokenizer_target: Tokenizer for target language
+    :param max_length_pred: Maximum length of output sequence
+    :param transformer: Trained Transformer model
+    :return: The sequence of token ids in target language, the attention weights
+    """
     start_token = [tokenizer_source.vocab_size]
     end_token = [tokenizer_source.vocab_size + 1]
 
@@ -62,8 +101,7 @@ def evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, 
     output = tf.expand_dims(decoder_input, 0)
 
     for i in range(max_length_pred):
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
-            encoder_input, output)
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
 
         # predictions.shape == (batch_size, seq_len, vocab_size)
         predictions, attention_weights = transformer(encoder_input,
@@ -89,6 +127,15 @@ def evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, 
 
 
 def plot_attention_weights(attention, sentence, result, layer, tokenizer_source, tokenizer_target):
+    """
+    Plot attention weights for a given layer
+    :param attention: Attention weights
+    :param sentence: Tokenized input sentence
+    :param result: Tokenized translated sentence
+    :param layer: Name of layer to plot ex('decoder_layer4_block2')
+    :param tokenizer_source: Source language tokenizer
+    :param tokenizer_target: Target language tokenizer
+    """
     fig = plt.figure(figsize=(16, 8))
 
     sentence = tokenizer_source.encode(sentence)
@@ -122,7 +169,19 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_source,
     plt.show()
 
 
-def translate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer, plot=False):
+def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
+              tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
+              transformer: Transformer, plot: str = "") -> str:
+    """
+    Translate a sentence from source to target language
+    :param inp_sentence: input sentence in source language
+    :param tokenizer_source: tokenizer for source language
+    :param tokenizer_target: tokenizer for target language
+    :param max_length_pred: maximum number of tokens in output sentence
+    :param transformer: Trained Transformer model
+    :param plot: Name of layer to plot (will not plot if "")
+    :return: The translated sentence in target language
+    """
     result, attention_weights = evaluate(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer)
 
     predicted_sentence = tokenizer_target.decode([i for i in result if i < tokenizer_target.vocab_size])

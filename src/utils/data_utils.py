@@ -87,6 +87,8 @@ def create_transformer_dataset(source: str, target: Optional[str],
     if target is not None:
         for target_line in target_lines[:num_examples]:
             target_data.append(target_line.strip())
+    else:
+        target_data = [""] * len(source_lines)
     dataset = tf.data.Dataset.from_tensor_slices((source_data, target_data))
     return dataset
 
