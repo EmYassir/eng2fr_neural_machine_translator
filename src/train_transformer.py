@@ -4,7 +4,6 @@ Train a transformer model to translate from source to target language
 
 import argparse
 import json
-import logging
 import os
 import time
 from typing import Union, List
@@ -62,7 +61,7 @@ def main() -> None:
     restore_checkpoint = args.restore_checkpoint
 
     tf.random.set_seed(42)  # Set seed for reproducibility
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+    # logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
