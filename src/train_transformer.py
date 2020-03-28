@@ -12,7 +12,6 @@ from typing import Union, List
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
-from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.models.Transformer import Transformer
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
@@ -28,10 +27,10 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 
 def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], vocab_size: int):
-    try:
+    if os.path.exists(path):
         tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
         logging.info(f"Loaded {name} tokenizer from {path}")
-    except NotFoundError:
+    else:
         logging.info(f"Could not find {name} tokenizer in {path}, building tokenizer...")
         tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
         tokenizer.save_to_file(path)
