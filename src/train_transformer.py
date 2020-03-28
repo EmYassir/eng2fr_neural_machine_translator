@@ -31,12 +31,12 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
-        logging.info(f"Loaded {name} tokenizer from {path}")
+        print(f"Loaded {name} tokenizer from {path}")
     except NotFoundError:
-        logging.info(f"Could not find {name} tokenizer in {path}, building tokenizer...")
+        print(f"Could not find {name} tokenizer in {path}, building tokenizer...")
         tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
         tokenizer.save_to_file(path)
-        logging.info(f"{name} tokenizer saved to {path}")
+        print(f"{name} tokenizer saved to {path}")
 
     return tokenizer
 
@@ -182,7 +182,7 @@ def main() -> None:
         # if a checkpoint exists, restore the latest checkpoint.
         if ckpt_manager.latest_checkpoint:
             ckpt.restore(ckpt_manager.latest_checkpoint)
-            logging.info(f'Latest checkpoint restored from {checkpoint_path}')
+            print(f'Latest checkpoint restored from {checkpoint_path}')
 
     train_step_signature = [
         tf.TensorSpec(shape=(None, None), dtype=tf.int64),
@@ -240,25 +240,25 @@ def main() -> None:
             train_step(inp, tar)
 
             if batch % 50 == 0:
-                logging.info(f"Epoch {epoch + 1} Batch {batch} Loss {train_loss.result():.4f} "
+                print(f"Epoch {epoch + 1} Batch {batch} Loss {train_loss.result():.4f} "
                              f"Accuracy {train_accuracy.result():.4f}")
 
         for (batch, (inp, tar)) in enumerate(val_dataset):
             validate(inp, tar)
             val_accuracy_result = val_accuracy.result()
-            logging.info(f"Epoch {epoch + 1} Batch {batch} Validation Loss {val_loss.result():.4f} "
+            print(f"Epoch {epoch + 1} Batch {batch} Validation Loss {val_loss.result():.4f} "
                          f"Validation Accuracy {val_accuracy_result:.4f}")
         if val_accuracy_result > best_val_accuracy:
             best_val_accuracy = val_accuracy_result
             ckpt_save_path_best = ckpt_manager_best.save()
-            logging.info(f"Saving best checkpoint for epoch {epoch + 1} at {ckpt_save_path_best}")
+            print(f"Saving best checkpoint for epoch {epoch + 1} at {ckpt_save_path_best}")
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
-            logging.info(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
+            print(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
 
-        logging.info(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
+        print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
-        logging.info(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+        print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
 
 
 if __name__ == "__main__":
