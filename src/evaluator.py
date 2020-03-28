@@ -14,6 +14,7 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
 from src.models.Transformer import Transformer
 from src.utils.transformer_utils import translate
+from src.utils.data_utils import project_root
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -24,7 +25,7 @@ session = InteractiveSession(config=tf_config)
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 
-def generate_predictions(input_file_path: str, pred_file_path: str):
+def generate_predictions(input_file_path: str, pred_file_path: str, save_path: str):
     """Generates predictions for the machine translation task (EN->FR).
     You are allowed to modify this function as needed, but one again, you cannot
     modify any other part of this file. We will be importing only this function
@@ -33,10 +34,12 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
     Args:
         input_file_path: the file path that contains the input data.
         pred_file_path: the file path where to store the predictions.
+        save_path: path to directory where models/tokenizers are
     Returns: None
     """
     start = time.time()
-    config_path = "config_files/transformer_eval_back_cfg.json"  # Change to eval_cfg with parameters of best model
+    # Change to eval_cfg with parameters of best model
+    config_path = os.path.join(project_root(), "config_files", "transformer_eval_back_cfg.json")
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
@@ -47,10 +50,10 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
     d_model = config["d_model"]
     dff = config["dff"]
     num_heads = config["num_heads"]
-    tokenizer_source_path = config["tokenizer_source_path"]
-    tokenizer_target_path = config["tokenizer_target_path"]
+    tokenizer_source_path = os.path.join(save_path, config["tokenizer_source_path"])
+    tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
+    checkpoint_path_best = os.path.join(save_path, config["checkpoint_path_best"])
     dropout_rate = config["dropout_rate"]
-    checkpoint_path_best = config["checkpoint_path_best"]
 
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
     tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
@@ -100,7 +103,6 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
                 debug_file.write(result + '\n')
 
     print(f"time for prediction: {time.time() - start} seconds")
-    # MODIFY ABOVE #####
 
 
 def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: bool):
@@ -124,11 +126,12 @@ def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: b
 
 def main():
     parser = argparse.ArgumentParser('script for evaluating a model.')
-    parser.add_argument('--target-file-path', help='path to target (reference) file', required=True)
-    parser.add_argument('--input-file-path', help='path to input file', required=True)
-    parser.add_argument('--print-all-scores', help='will print one score per sentence',
+    parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
+    parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
+    parser.add_argument('--save_path', type=str, help='path to saved models/tokenizers', default=project_root())
+    parser.add_argument('--print-all-scores', type=bool, help='will print one score per sentence',
                         action='store_true')
-    parser.add_argument('--do-not-run-model',
+    parser.add_argument('--do-not-run-model', type=bool,
                         help='will use --input-file-path as predictions, instead of running the '
                              'model on it',
                         action='store_true')
@@ -139,7 +142,7 @@ def main():
         compute_bleu(args.input_file_path, args.target_file_path, args.print_all_scores)
     else:
         _, pred_file_path = tempfile.mkstemp()
-        generate_predictions(args.input_file_path, pred_file_path)
+        generate_predictions(args.input_file_path, pred_file_path, args.save_path)
         compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
 
 
