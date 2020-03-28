@@ -75,9 +75,9 @@ def main() -> None:
     source_target_vocab_size = config["source_target_vocab_size"]
     source_input_files = [source_unaligned, source_training]
 
-    target_unaligned = os.path.join(config["target_unaligned"])
-    target_training = os.path.join(config["target_training"])
-    target_validation = os.path.join(config["target_validation"])
+    target_unaligned = os.path.join(data_path, config["target_unaligned"])
+    target_training = os.path.join(data_path, config["target_training"])
+    target_validation = os.path.join(data_path, config["target_validation"])
     target_target_vocab_size = config["target_target_vocab_size"]
 
     target_input_files = [target_unaligned, target_training]
