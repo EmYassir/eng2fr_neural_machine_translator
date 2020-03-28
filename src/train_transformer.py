@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from typing import Union, List
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -10,7 +11,7 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.models.Transformer import Transformer
-from src.utils.data_utils import build_tokenizer, create_transformer_dataset
+from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule, create_masks
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -22,7 +23,20 @@ session = InteractiveSession(config=tf_config)
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 
-def main(config_path: str):
+def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], vocab_size: int):
+    try:
+        tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
+        logging.info(f"Loaded {name} tokenizer from {path}")
+    except NotFoundError:
+        logging.info(f"Could not find {name} tokenizer in {path}, building tokenizer...")
+        tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
+        tokenizer.save_to_file(path)
+        logging.info(f"{name} tokenizer saved to {path}")
+
+    return tokenizer
+
+
+def main(config_path: str, data_path: str, save_path: str):
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
@@ -31,21 +45,21 @@ def main(config_path: str):
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
-    source_unaligned = config["source_unaligned"]
-    source_training = config["source_training"]
-    source_validation = config["source_validation"]
+    source_unaligned = os.path.join(data_path, config["source_unaligned"])
+    source_training = os.path.join(data_path, config["source_training"])
+    source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_input_files = [source_unaligned, source_training]
 
-    target_unaligned = config["target_unaligned"]
-    target_training = config["target_training"]
-    target_validation = config["target_validation"]
+    target_unaligned = os.path.join(config["target_unaligned"])
+    target_training = os.path.join(config["target_training"])
+    target_validation = os.path.join(config["target_validation"])
     target_target_vocab_size = config["target_target_vocab_size"]
 
     target_input_files = [target_unaligned, target_training]
 
-    tokenizer_source_path = config["tokenizer_source_path"]
-    tokenizer_target_path = config["tokenizer_target_path"]
+    tokenizer_source_path = os.path.join(save_path, config["tokenizer_source_path"])
+    tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
 
     # Set hyperparameters
     num_layers = config["num_layers"]
@@ -56,26 +70,11 @@ def main(config_path: str):
     batch_size = config["batch_size"]
     epochs = config["epochs"]
 
-    checkpoint_path = config["checkpoint_path"]
-    checkpoint_path_best = config["checkpoint_path_best"]
+    checkpoint_path = os.path.join(save_path, config["checkpoint_path"])
+    checkpoint_path_best = os.path.join(save_path, config["checkpoint_path_best"])
 
-    try:
-        tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
-        logging.info(f"Loaded source tokenizer from {tokenizer_source_path}")
-    except NotFoundError:
-        logging.info(f"Could not find source tokenizer in {tokenizer_source_path}, building tokenizer...")
-        tokenizer_source = build_tokenizer(source_input_files, target_vocab_size=source_target_vocab_size)
-        tokenizer_source.save_to_file(tokenizer_source_path)
-        logging.info(f"Source tokenizer saved to {tokenizer_source_path}")
-
-    try:
-        tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
-        logging.info(f"Loaded target tokenizer from {tokenizer_target_path}")
-    except NotFoundError:
-        logging.info(f"Could not find target tokenizer in {tokenizer_target_path}, building tokenizer...")
-        tokenizer_target = build_tokenizer(target_input_files, target_vocab_size=target_target_vocab_size)
-        tokenizer_target.save_to_file(tokenizer_target_path)
-        logging.info(f"French tokenizer saved to {tokenizer_target_path}")
+    tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
+    tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
 
     with open(source_training, "r", encoding="utf-8") as train_source:
         buffer_size = sum([1 for _ in train_source.readlines()])
@@ -243,7 +242,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
+    parser.add_argument("--data_path", type=str,
+                        help="path to the directory where the data is", default=project_root())
+    parser.add_argument("--save_path", type=str,
+                        help="path to the directory where to save model/tokenizer", default=project_root())
     args = parser.parse_args()
     main(
         config_path=args.cfg_path,
+        data_path=args.data_path,
+        save_path=args.save_path
     )

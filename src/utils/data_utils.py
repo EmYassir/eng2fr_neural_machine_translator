@@ -3,9 +3,15 @@ Utility functions to manipulate data
 """
 
 from typing import List, Optional, Tuple
+from pathlib import Path
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+
+
+def project_root() -> Path:
+    """Returns project root folder."""
+    return Path(__file__).parent.parent.parent
 
 
 def preprocess_sentence(sentence: str) -> str:
