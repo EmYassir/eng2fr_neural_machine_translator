@@ -6,7 +6,7 @@
   "num_heads": 8,
   "dropout_rate": 0.1,
   "batch_size": 64,
-  "epochs": 60,
+  "epochs": 100,
   "source_unaligned": "data/no_punctuation/unaligned.en",
   "source_training": "data/training.lang1",
   "source_validation": "data/validation.lang1",

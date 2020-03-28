@@ -24,7 +24,7 @@ All change to the master branch should be made through a pull request.
 The approval of one collaborator is mandatory for a PR to be merged to the master branch.
 The PR should pass the flake8 and pytest auto-runs without failure before being merged to master. 
 
-# Steps to reproduce training
+# Steps to reproduce training with attention GRU (see jerome_dev branch for evaluator function)
 * Tokenize the unaligned data in both language and remove punctuation.
 * Add <start> and <end> tokens for each line
 * Train a language model (ex: Word2Vec with the src.word_embeddings_models/word2vec.py script) on both languages
