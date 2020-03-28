@@ -8,7 +8,7 @@ __pycache__/
 data/debug*
 data/training*
 data/validation*
-data/unaligned_all
+data/unaligned*
 tokenizer_en.save.subwords
 # C extensions
 *.so
