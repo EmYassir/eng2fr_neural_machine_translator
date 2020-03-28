@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -34,7 +35,8 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
         pred_file_path: the file path where to store the predictions.
     Returns: None
     """
-    config_path = "config_files/transformer_eval_back_cfg.json"
+    start = time.time()
+    config_path = "config_files/transformer_eval_back_cfg.json"  # Change to eval_cfg with parameters of best model
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
@@ -71,21 +73,24 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
         print('Latest checkpoint restored from ', checkpoint_path_best)
 
     results = []
+
     num_lines = sum(1 for _ in open(input_file_path))
-    # TODO check how to make this faster
+
     with open(input_file_path, "r") as input_file:
         count = 0
         input_sentence = input_file.readline().strip()
         while input_sentence:
             if count % 100 == 0:
                 print(f"{count}/{num_lines}")
-            # Predict maximum length of 1.5 time the input length
+            # Predict maximum length of 1.5 times the input length
             # TODO See if there's a better heuristic
             max_length_pred = int(len(tokenizer_source.encode(input_sentence)) * 1.5)
-            result = translate(input_sentence, tokenizer_source, tokenizer_target, max_length_pred, transformer)
+            result = translate(input_sentence, tokenizer_source, tokenizer_target, max_length_pred,
+                               transformer, plot='')
             results.append(result)
             count += 1
             input_sentence = input_file.readline()
+
     with open(pred_file_path, "w") as pred_file:
         for result in results:
             pred_file.write(result + '\n')
@@ -93,6 +98,8 @@ def generate_predictions(input_file_path: str, pred_file_path: str):
         with open("debug_predictions", "w") as debug_file:
             for result in results:
                 debug_file.write(result + '\n')
+
+    print(f"time for prediction: {time.time() - start} seconds")
     # MODIFY ABOVE #####
 
 
