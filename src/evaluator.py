@@ -129,9 +129,9 @@ def main():
     parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
     parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
     parser.add_argument('--save_path', type=str, help='path to saved models/tokenizers', default=project_root())
-    parser.add_argument('--print-all-scores', type=bool, help='will print one score per sentence',
+    parser.add_argument('--print-all-scores', help='will print one score per sentence',
                         action='store_true')
-    parser.add_argument('--do-not-run-model', type=bool,
+    parser.add_argument('--do-not-run-model',
                         help='will use --input-file-path as predictions, instead of running the '
                              'model on it',
                         action='store_true')

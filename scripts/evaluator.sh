@@ -30,11 +30,11 @@ echo "Now in directory ${PWD}"
 if [ -z "${print_all_scores}" ]; then
       echo "Warning: \$print_all_scores argument is empty -> Defaults to False"
       python -m src.evaluator \
-        --input_file_path "${input_file_path}" \
-        --target_file_path "${target_file_path}"
+        --input-file-path "${input_file_path}" \
+        --target-file-path "${target_file_path}"
 else
   python -m src.evaluator \
-        --input_file_path "${input_file_path}" \
-        --target_file_path "${target_file_path}" \
+        --input-file-path "${input_file_path}" \
+        --target-file-path "${target_file_path}" \
         --print-all-scores
 fi
