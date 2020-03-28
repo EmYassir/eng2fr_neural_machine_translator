@@ -18,11 +18,9 @@ from src.utils.data_utils import build_tokenizer, create_transformer_dataset, pr
 from src.utils.transformer_utils import CustomSchedule, create_masks
 
 import logging
-logging.basicConfig(
-    format='%(asctime)s : %(levelname)s : %(message)s',
-    level=logging.INFO,
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble

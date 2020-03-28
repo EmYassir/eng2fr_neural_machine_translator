@@ -10,6 +10,7 @@ data/training*
 data/validation*
 data/unaligned_all
 tokenizer_en.save.subwords
+slurm*
 # C extensions
 *.so
 
