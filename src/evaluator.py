@@ -85,7 +85,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
         input_sentence = input_file.readline().strip()
         while input_sentence:
             if count % 100 == 0:
-                print(f"{count}/{num_lines}")
+                tf.print(f"{count}/{num_lines}")
             # Predict maximum length of 1.5 times the input length
             # TODO See if there's a better heuristic
             max_length_pred = int(len(tokenizer_source.encode(input_sentence)) * 1.5)
@@ -114,12 +114,13 @@ def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: b
         print_all_scores: if True, will print one score per example.
     Returns: None
     """
+    tf.print("Starting to compute bleu score...")
     out = subprocess.run(["sacrebleu", "--input", pred_file_path, target_file_path, '--tokenize',
                           'none', '--sentence-level', '--score-only'],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     lines = out.stdout.split('\n')
     if print_all_scores:
-        print('\n'.join(lines[:-1]))
+        tf.print('\n'.join(lines[:-1]))
     else:
         scores = [float(x) for x in lines[:-1]]
         tf.print('final avg bleu score: {:.2f}'.format(sum(scores) / len(scores)))
