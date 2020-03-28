@@ -39,7 +39,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
     Returns: None
     """
     start = time.time()
-    print(f"Using config_file={config_file}")
+    tf.print(f"Using config_file={config_file}")
     config_path = os.path.join(project_root(), "config_files", config_file)
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
@@ -74,7 +74,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
     # if a checkpoint exists, restore the latest checkpoint.
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
-        print('Latest checkpoint restored from ', checkpoint_path_best)
+        tf.print('Latest checkpoint restored from ', checkpoint_path_best)
 
     results = []
 
@@ -103,7 +103,7 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
             for result in results:
                 debug_file.write(result + '\n')
 
-    print(f"time for prediction: {time.time() - start} seconds")
+    tf.print(f"Time for prediction: {time.time() - start} seconds")
 
 
 def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: bool):
@@ -122,7 +122,7 @@ def compute_bleu(pred_file_path: str, target_file_path: str, print_all_scores: b
         print('\n'.join(lines[:-1]))
     else:
         scores = [float(x) for x in lines[:-1]]
-        print('final avg bleu score: {:.2f}'.format(sum(scores) / len(scores)))
+        tf.print('final avg bleu score: {:.2f}'.format(sum(scores) / len(scores)))
 
 
 def main():
