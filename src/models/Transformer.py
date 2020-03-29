@@ -177,8 +177,6 @@ class Encoder(tf.keras.layers.Layer):
 
     def call(self, x, training, mask):
         seq_len = tf.shape(x)[1]
-        import pdb
-        pdb.set_trace()
 
         # adding embedding and position encoding.
         x = self.embedding(x)  # (batch_size, input_seq_len, d_model)
