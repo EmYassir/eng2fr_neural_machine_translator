@@ -11,6 +11,9 @@ data/validation*
 data/unaligned_all
 tokenizer_en.save.subwords
 slurm*
+debug_predictions
+/checkpoints/
+/tokenizer/
 # C extensions
 *.so
 

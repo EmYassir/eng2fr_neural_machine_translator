@@ -139,6 +139,7 @@ def main() -> None:
 
     source_vocab_size = tokenizer_source.vocab_size + 2
     target_vocab_size = tokenizer_target.vocab_size + 2
+    tf.print(f"source_vocab_size = {source_vocab_size} and target_vocab_size = {target_vocab_size}")
 
     # Use the Adam optimizer with a custom learning rate scheduler according to the formula
     # in the paper (https://arxiv.org/abs/1706.03762)

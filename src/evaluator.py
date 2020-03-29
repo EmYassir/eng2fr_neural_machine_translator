@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import time
+from typing import Optional
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -25,7 +26,13 @@ session = InteractiveSession(config=tf_config)
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 
-def generate_predictions(input_file_path: str, pred_file_path: str, save_path: str, config_file: str):
+def generate_predictions(
+        input_file_path: str,
+        pred_file_path: str,
+        saved_path: str,
+        config_file: str,
+        max_lines_process: Optional[int] = None
+):
     """Generates predictions for the machine translation task (EN->FR).
     You are allowed to modify this function as needed, but one again, you cannot
     modify any other part of this file. We will be importing only this function
@@ -34,8 +41,9 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
     Args:
         input_file_path: the file path that contains the input data.
         pred_file_path: the file path where to store the predictions.
-        save_path: path to directory where models/tokenizers are
+        saved_path: path to directory where models/tokenizers are
         config_file: name of config file
+        max_lines_process: maximum number of lines to translate (all of them if not specified)
     Returns: None
     """
     start = time.time()
@@ -51,9 +59,9 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
     d_model = config["d_model"]
     dff = config["dff"]
     num_heads = config["num_heads"]
-    tokenizer_source_path = os.path.join(save_path, config["tokenizer_source_path"])
-    tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
-    checkpoint_path_best = os.path.join(save_path, config["checkpoint_path_best"])
+    tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
+    tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
+    checkpoint_path_best = os.path.join(saved_path, config["checkpoint_path_best"])
     dropout_rate = config["dropout_rate"]
 
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
@@ -79,6 +87,10 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
     results = []
 
     num_lines = sum(1 for _ in open(input_file_path))
+    if max_lines_process is not None:
+        num_lines = min(num_lines, max_lines_process)
+    tf.print(f"Translating a a total of = {num_lines}")
+
     # TODO check how to make this faster
     with open(input_file_path, "r", encoding="utf-8") as input_file:
         count = 0
@@ -94,14 +106,13 @@ def generate_predictions(input_file_path: str, pred_file_path: str, save_path: s
             results.append(result)
             count += 1
             input_sentence = input_file.readline()
+            if count >= num_lines:
+                break
 
-    with open(pred_file_path, "w") as pred_file:
+    outfile = "debug_predictions" if debug else pred_file_path
+    with open(outfile, "w", encoding="utf-8") as f_out:
         for result in results:
-            pred_file.write(result + '\n')
-    if debug:
-        with open("debug_predictions", "w") as debug_file:
-            for result in results:
-                debug_file.write(result + '\n')
+            f_out.write(result + '\n')
 
     tf.print(f"Time for prediction: {time.time() - start} seconds")
 
@@ -131,8 +142,9 @@ def main():
     parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
     parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
     parser.add_argument('--config_file', type=str,
-                        help='name of config file in directory config_files/', required=True)
-    parser.add_argument('--save_path', type=str, help='path to saved models/tokenizers', default=project_root())
+                        help='name of config file in directory config_files/',
+                        default="transformer_eval_cfg.json")
+    parser.add_argument('--saved_path', type=str, help='path to saved models/tokenizers', default=project_root())
     parser.add_argument('--print-all-scores', help='will print one score per sentence',
                         action='store_true')
     parser.add_argument('--do-not-run-model',
@@ -146,7 +158,7 @@ def main():
         compute_bleu(args.input_file_path, args.target_file_path, args.print_all_scores)
     else:
         _, pred_file_path = tempfile.mkstemp()
-        generate_predictions(args.input_file_path, pred_file_path, args.save_path, args.config_file)
+        generate_predictions(args.input_file_path, pred_file_path, args.saved_path, args.config_file)
         compute_bleu(pred_file_path, args.target_file_path, args.print_all_scores)
 
 
