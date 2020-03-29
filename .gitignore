@@ -8,7 +8,9 @@ __pycache__/
 data/debug*
 data/training*
 data/validation*
-data/unaligned_all
+data/unaligned.fr_*
+data.zip
+/logs/
 slurm*
 debug_predictions
 /checkpoints/

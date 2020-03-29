@@ -6,13 +6,14 @@
 
 FOLDER="/project/cq-training-1/project2/teams/team09"
 CODE_FOLDER="${FOLDER}/ift6759_project2"
+ZIP_FILE="data.zip"
 
-input_file_path=${1}
+name_input_file=${1}
 config_file=${2}
 num_lines=${3}
 
-if [ -z "${input_file_path}" ]; then
-      echo "Error: \$input_file_path argument is empty"
+if [ -z "${name_input_file}" ]; then
+      echo "Error: \$name_input_file argument is empty"
       exit 1
 fi
 if [ -z "${config_file}" ]; then
@@ -27,11 +28,16 @@ fi
 # 1. Create your environement locally
 source "${FOLDER}/venv/bin/activate"
 
+# 2. Copy your dataset on the compute node
+cp "${FOLDER}/${ZIP_FILE}" "${SLURM_TMPDIR}"
+
+# 3. Eventually unzip your dataset
+unzip "${SLURM_TMPDIR}/${ZIP_FILE}" -d "${SLURM_TMPDIR}"
 
 cd "${CODE_FOLDER}" || exit
 echo "Now in directory ${PWD}"
 
 python -m src.generate_synthetic \
-        -i "${input_file_path}" \
+        -i "${SLURM_TMPDIR}/data/${name_input_file}" \
         -c "${config_file}" \
         -n "${num_lines}"

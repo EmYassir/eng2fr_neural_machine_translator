@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import time
+import datetime
 from typing import Union, List
 
 import tensorflow as tf
@@ -39,6 +40,16 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
         tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
 
     return tokenizer
+
+
+def get_summary_tf(save_path: str):
+    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = os.path.join(logs_dir, current_time, 'train')
+    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
+    return train_summary_writer, val_summary_writer
 
 
 def main() -> None:
@@ -215,6 +226,7 @@ def main() -> None:
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
+    train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0
     for epoch in range(epochs):
         start = time.time()
@@ -243,6 +255,14 @@ def main() -> None:
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
             tf.print(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
+
+        # Write loss and accuracy so that they can be loaded with tensorboard
+        with train_summary_writer.as_default():
+            tf.summary.scalar('loss', train_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch)
+        with val_summary_writer.as_default():
+            tf.summary.scalar('loss', val_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', val_accuracy.result(), step=epoch)
 
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
