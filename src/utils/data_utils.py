@@ -3,9 +3,15 @@ Utility functions to manipulate data
 """
 
 from typing import List, Optional, Tuple
+from pathlib import Path
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+
+
+def project_root() -> Path:
+    """Returns project root folder."""
+    return Path(__file__).parent.parent.parent
 
 
 def preprocess_sentence(sentence: str) -> str:
@@ -145,7 +151,7 @@ def load_dataset(input_path: str, target_path: Optional[str], max_seq_length: Op
 def build_tokenizer(files_list, target_vocab_size=2 ** 13):
     language = []
     for file in files_list:
-        with open(file) as lang_file:
+        with open(file, "r", encoding="utf-8") as lang_file:
             language += lang_file.readlines()
     tokenizer = tfds.features.text.SubwordTextEncoder.build_from_corpus(
         (line for line in language), target_vocab_size=target_vocab_size)

@@ -4,9 +4,9 @@ Train a transformer model to translate from source to target language
 
 import argparse
 import json
-import logging
 import os
 import time
+from typing import Union, List
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -14,7 +14,7 @@ from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.models.Transformer import Transformer
-from src.utils.data_utils import build_tokenizer, create_transformer_dataset
+from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule, create_masks
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -24,6 +24,20 @@ tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+
+
+def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], vocab_size: int):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
+        tf.print(f"Loaded {name} tokenizer from {path}")
+    except NotFoundError:
+        tf.print(f"Could not find {name} tokenizer in {path}, building tokenizer...")
+        tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
+        tokenizer.save_to_file(path)
+        tf.print(f"{name} tokenizer saved to {path}")
+
+    return tokenizer
 
 
 def main() -> None:
@@ -36,12 +50,17 @@ def main() -> None:
     parser.add_argument('--restore_checkpoint',
                         help='will restore the latest checkpoint',
                         action='store_true')
+    parser.add_argument("--data_path", type=str,
+                        help="path to the directory where the data is", default=project_root())
+    parser.add_argument("--save_path", type=str,
+                        help="path to the directory where to save model/tokenizer", default=project_root())
     args = parser.parse_args()
+    data_path = args.data_path
+    save_path = args.save_path
     config_path = args.cfg_path
     restore_checkpoint = args.restore_checkpoint
 
     tf.random.set_seed(42)  # Set seed for reproducibility
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
@@ -49,21 +68,21 @@ def main() -> None:
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
-    source_unaligned = config["source_unaligned"]
-    source_training = config["source_training"]
-    source_validation = config["source_validation"]
+    source_unaligned = os.path.join(data_path, config["source_unaligned"])
+    source_training = os.path.join(data_path, config["source_training"])
+    source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_input_files = [source_unaligned, source_training]
 
-    target_unaligned = config["target_unaligned"]
-    target_training = config["target_training"]
-    target_validation = config["target_validation"]
+    target_unaligned = os.path.join(data_path, config["target_unaligned"])
+    target_training = os.path.join(data_path, config["target_training"])
+    target_validation = os.path.join(data_path, config["target_validation"])
     target_target_vocab_size = config["target_target_vocab_size"]
 
     target_input_files = [target_unaligned, target_training]
 
-    tokenizer_source_path = config["tokenizer_source_path"]
-    tokenizer_target_path = config["tokenizer_target_path"]
+    tokenizer_source_path = os.path.join(save_path, config["tokenizer_source_path"])
+    tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
 
     # Set hyperparameters
     num_layers = config["num_layers"]
@@ -74,29 +93,14 @@ def main() -> None:
     batch_size = config["batch_size"]
     epochs = config["epochs"]
 
-    checkpoint_path = config["checkpoint_path"]
-    checkpoint_path_best = config["checkpoint_path_best"]
+    checkpoint_path = os.path.join(save_path, config["checkpoint_path"])
+    checkpoint_path_best = os.path.join(save_path, config["checkpoint_path_best"])
 
-    try:
-        tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
-        logging.info(f"Loaded source tokenizer from {tokenizer_source_path}")
-    except NotFoundError:
-        logging.info(f"Could not find source tokenizer in {tokenizer_source_path}, building tokenizer...")
-        tokenizer_source = build_tokenizer(source_input_files, target_vocab_size=source_target_vocab_size)
-        tokenizer_source.save_to_file(tokenizer_source_path)
-        logging.info(f"Source tokenizer saved to {tokenizer_source_path}")
+    tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
+    tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
 
-    try:
-        tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
-        logging.info(f"Loaded target tokenizer from {tokenizer_target_path}")
-    except NotFoundError:
-        logging.info(f"Could not find target tokenizer in {tokenizer_target_path}, building tokenizer...")
-        tokenizer_target = build_tokenizer(target_input_files, target_vocab_size=target_target_vocab_size)
-        tokenizer_target.save_to_file(tokenizer_target_path)
-        logging.info(f"French tokenizer saved to {tokenizer_target_path}")
-
-    with open(source_training) as train_source:
-        buffer_size = sum([1 for line in train_source.readlines()])
+    with open(source_training, "r", encoding="utf-8") as train_source:
+        buffer_size = sum([1 for _ in train_source.readlines()])
 
     def encode(source, target):
         # Add start and end token
@@ -176,7 +180,7 @@ def main() -> None:
         # if a checkpoint exists, restore the latest checkpoint.
         if ckpt_manager.latest_checkpoint:
             ckpt.restore(ckpt_manager.latest_checkpoint)
-            logging.info(f'Latest checkpoint restored from {checkpoint_path}')
+            tf.print(f'Latest checkpoint restored from {checkpoint_path}')
 
     train_step_signature = [
         tf.TensorSpec(shape=(None, None), dtype=tf.int64),
@@ -234,25 +238,25 @@ def main() -> None:
             train_step(inp, tar)
 
             if batch % 50 == 0:
-                logging.info(f"Epoch {epoch + 1} Batch {batch} Loss {train_loss.result():.4f} "
-                             f"Accuracy {train_accuracy.result():.4f}")
+                tf.print(f"Epoch {epoch + 1} Batch {batch} Loss {train_loss.result():.4f} "
+                         f"Accuracy {train_accuracy.result():.4f}")
 
         for (batch, (inp, tar)) in enumerate(val_dataset):
             validate(inp, tar)
             val_accuracy_result = val_accuracy.result()
-            logging.info(f"Epoch {epoch + 1} Batch {batch} Validation Loss {val_loss.result():.4f} "
-                         f"Validation Accuracy {val_accuracy_result:.4f}")
+            tf.print(f"Epoch {epoch + 1} Batch {batch} Validation Loss {val_loss.result():.4f} "
+                     f"Validation Accuracy {val_accuracy_result:.4f}")
         if val_accuracy_result > best_val_accuracy:
             best_val_accuracy = val_accuracy_result
             ckpt_save_path_best = ckpt_manager_best.save()
-            logging.info(f"Saving best checkpoint for epoch {epoch + 1} at {ckpt_save_path_best}")
+            tf.print(f"Saving best checkpoint for epoch {epoch + 1} at {ckpt_save_path_best}")
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
-            logging.info(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
+            tf.print(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
 
-        logging.info(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
+        tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
-        logging.info(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+        tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
 
 
 if __name__ == "__main__":
