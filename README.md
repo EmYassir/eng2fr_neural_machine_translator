@@ -30,3 +30,9 @@ to date and load the necessary parameters
 ```bash
 python src/evaluator.py --target-file-path path_to_target_file --input-file-path path_to_input_file
 ```
+
+## Generate synthetic data
+To generate some synthetic data on unaligned data using back-translation, type the following command:
+```bash
+python -m src.generate_synthetic -i [input_file_path] -c [config_file] -n [number_of_lines]
+```

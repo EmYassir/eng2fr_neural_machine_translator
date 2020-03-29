@@ -13,8 +13,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
-from src.models.Transformer import Transformer
-from src.utils.transformer_utils import translate
+from src.utils.transformer_utils import translate, load_transformer
 from src.utils.data_utils import project_root
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -54,27 +53,15 @@ def generate_predictions(
         config = json.load(config_file)
 
     debug = config["debug"]  # Write predictions to debug_predictions if True
-    # Set hyperparameters
-    num_layers = config["num_layers"]
-    d_model = config["d_model"]
-    dff = config["dff"]
-    num_heads = config["num_heads"]
+
     tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
     tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
     checkpoint_path_best = os.path.join(saved_path, config["checkpoint_path_best"])
-    dropout_rate = config["dropout_rate"]
 
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
     tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
 
-    source_vocab_size = tokenizer_source.vocab_size + 2
-    target_vocab_size = tokenizer_target.vocab_size + 2
-
-    transformer = Transformer(num_layers, d_model, num_heads, dff,
-                              source_vocab_size, target_vocab_size,
-                              pe_input=source_vocab_size,
-                              pe_target=target_vocab_size,
-                              rate=dropout_rate)
+    transformer = load_transformer(config, tokenizer_source, tokenizer_target)
 
     ckpt = tf.train.Checkpoint(transformer=transformer)
 
@@ -89,7 +76,7 @@ def generate_predictions(
     num_lines = sum(1 for _ in open(input_file_path))
     if max_lines_process is not None:
         num_lines = min(num_lines, max_lines_process)
-    tf.print(f"Translating a a total of = {num_lines}")
+    tf.print(f"Translating a total of {num_lines} sentences")
 
     # TODO check how to make this faster
     with open(input_file_path, "r", encoding="utf-8") as input_file:
@@ -106,10 +93,11 @@ def generate_predictions(
             results.append(result)
             count += 1
             input_sentence = input_file.readline()
-            if count >= num_lines:
+            if max_lines_process is not None and count >= num_lines:
                 break
 
     outfile = "debug_predictions" if debug else pred_file_path
+    tf.print(f"Writing predictions to path = {outfile}")
     with open(outfile, "w", encoding="utf-8") as f_out:
         for result in results:
             f_out.write(result + '\n')

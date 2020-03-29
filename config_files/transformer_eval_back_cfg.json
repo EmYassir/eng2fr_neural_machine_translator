@@ -1,5 +1,5 @@
 {
-  "debug": true,
+  "debug": false,
   "num_examples": null,
   "num_layers": 4,
   "d_model": 128,
