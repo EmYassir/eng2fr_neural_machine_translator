@@ -32,7 +32,20 @@ python src/evaluator.py --target-file-path path_to_target_file --input-file-path
 ```
 
 ## Generate synthetic data
-To generate some synthetic data on unaligned data using back-translation, type the following command:
+To generate some synthetic data on unaligned data using back-translation, you can type the following command:
 ```bash
 python -m src.generate_synthetic -i [input_file_path] -c [config_file] -n [number_of_lines]
+```
+You can also use the script at `scripts/generate_synthetic.sh` with the command:
+```bash
+sbatch scripts/evaluator.sh [name_input_file] [config_file] [num_lines]
+```
+* [name_input_file] is the name of the file in the `.data/` folder <br>
+* [config_file] is the name of config file in the `.config_files/` folder <br>
+* [num_lines] is the number of sentences to translate if you want to translate only a subset of the input file.
+
+### Sample lines from text file
+To sample sentences from a text file, use the command:
+```bash
+python -m src.utils.sample_txt_file -i [input_file_path] -n [num_lines]
 ```

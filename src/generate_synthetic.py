@@ -20,7 +20,7 @@ def main():
         pred_file_path = args.pred_file_path
     else:
         directory, name = os.path.split(args.input_file_path)
-        pred_file_path = os.path.join(directory, f"synthetic_{name}")
+        pred_file_path = os.path.join(args.saved_path, f"synthetic_{name}")
         print(f"input_file_path not provided -> Defaulting to {pred_file_path}")
 
     generate_predictions(
