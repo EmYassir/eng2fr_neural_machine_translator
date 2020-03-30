@@ -2,22 +2,27 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:k80:1
 #SBATCH --mem=4G
-#SBATCH --time=1:00:00
+#SBATCH --time=24:00:00
 
 FOLDER="/project/cq-training-1/project2/teams/team09"
 CODE_FOLDER="${FOLDER}/ift6759_project2"
 ZIP_FILE="data.zip"
-config_file=${1}
-cfg_path="${CODE_FOLDER}/config_files/${config_file}"
 
-# Check if config file is valid
+name_input_file=${1}
+config_file=${2}
+num_lines=${3}
+
+if [ -z "${name_input_file}" ]; then
+      echo "Error: \$name_input_file argument is empty"
+      exit 1
+fi
 if [ -z "${config_file}" ]; then
       echo "Error: \$config_file argument is empty"
       exit 1
 fi
-if [ ! -e "${cfg_path}" ]; then
-    echo "Error: cfg_path=${cfg_path} does not exist"
-    exit 1
+if [ -z "${num_lines}" ]; then
+      echo "Error: \$num_lines argument is empty"
+      exit 1
 fi
 
 # 1. Create your environement locally
@@ -32,8 +37,7 @@ unzip "${SLURM_TMPDIR}/${ZIP_FILE}" -d "${SLURM_TMPDIR}"
 cd "${CODE_FOLDER}" || exit
 echo "Now in directory ${PWD}"
 
-# 4. Launch your job, and look for the dataset into $SLURM_TMPDIR
-python -m src.train_transformer \
-        --cfg_path "${cfg_path}" \
-        --data_path "${SLURM_TMPDIR}" \
-        --save_path "${CODE_FOLDER}"
+python -m src.generate_synthetic \
+        -i "${SLURM_TMPDIR}/data/${name_input_file}" \
+        -c "${config_file}" \
+        -n "${num_lines}"
