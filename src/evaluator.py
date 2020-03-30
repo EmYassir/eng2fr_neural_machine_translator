@@ -96,11 +96,14 @@ def generate_predictions(
             if max_lines_process is not None and count >= num_lines:
                 break
 
-    outfile = "debug_predictions" if debug else pred_file_path
-    tf.print(f"Writing predictions to path = {outfile}")
-    with open(outfile, "w", encoding="utf-8") as f_out:
+    tf.print(f"Writing predictions to path = {pred_file_path}")
+    with open(pred_file_path, "w", encoding="utf-8") as pred_file:
         for result in results:
-            f_out.write(result + '\n')
+            pred_file.write(result + '\n')
+    if debug:
+        with open("debug_predictions", "w", encoding="utf-8") as debug_file:
+            for result in results:
+                debug_file.write(result + '\n')
 
     tf.print(f"Time for prediction: {time.time() - start} seconds")
 
