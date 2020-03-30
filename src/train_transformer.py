@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import time
+import datetime
 from typing import Union, List
 
 import tensorflow as tf
@@ -13,9 +14,8 @@ import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
-from src.models.Transformer import Transformer
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
-from src.utils.transformer_utils import CustomSchedule, create_masks
+from src.utils.transformer_utils import CustomSchedule, create_masks, load_transformer
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -36,8 +36,20 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
         tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
         tokenizer.save_to_file(path)
         tf.print(f"{name} tokenizer saved to {path}")
+        # Reload to avoid weird error about mismatch vocabulary size
+        tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
 
     return tokenizer
+
+
+def get_summary_tf(save_path: str):
+    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = os.path.join(logs_dir, current_time, 'train')
+    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
+    return train_summary_writer, val_summary_writer
 
 
 def main() -> None:
@@ -85,11 +97,7 @@ def main() -> None:
     tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
 
     # Set hyperparameters
-    num_layers = config["num_layers"]
     d_model = config["d_model"]
-    dff = config["dff"]
-    num_heads = config["num_heads"]
-    dropout_rate = config["dropout_rate"]
     batch_size = config["batch_size"]
     epochs = config["epochs"]
 
@@ -98,6 +106,8 @@ def main() -> None:
 
     tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
     tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
+
+    transformer = load_transformer(config, tokenizer_source, tokenizer_target)
 
     with open(source_training, "r", encoding="utf-8") as train_source:
         buffer_size = sum([1 for _ in train_source.readlines()])
@@ -137,9 +147,6 @@ def main() -> None:
     val_dataset = (val_preprocessed
                    .padded_batch(1000, padded_shapes=([None], [None])))
 
-    source_vocab_size = tokenizer_source.vocab_size + 2
-    target_vocab_size = tokenizer_target.vocab_size + 2
-
     # Use the Adam optimizer with a custom learning rate scheduler according to the formula
     # in the paper (https://arxiv.org/abs/1706.03762)
     learning_rate = CustomSchedule(d_model)
@@ -164,12 +171,6 @@ def main() -> None:
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='val_accuracy')
-
-    transformer = Transformer(num_layers, d_model, num_heads, dff,
-                              source_vocab_size, target_vocab_size,
-                              pe_input=source_vocab_size,
-                              pe_target=target_vocab_size,
-                              rate=dropout_rate)
 
     ckpt = tf.train.Checkpoint(transformer=transformer,
                                optimizer=optimizer)
@@ -225,6 +226,7 @@ def main() -> None:
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
+    train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0
     for epoch in range(epochs):
         start = time.time()
@@ -253,6 +255,14 @@ def main() -> None:
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
             tf.print(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
+
+        # Write loss and accuracy so that they can be loaded with tensorboard
+        with train_summary_writer.as_default():
+            tf.summary.scalar('loss', train_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch)
+        with val_summary_writer.as_default():
+            tf.summary.scalar('loss', val_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', val_accuracy.result(), step=epoch)
 
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 

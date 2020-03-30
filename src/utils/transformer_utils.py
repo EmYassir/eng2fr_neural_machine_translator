@@ -2,7 +2,7 @@
 Utility functions for Transformer model
 """
 
-from typing import Tuple
+from typing import Tuple, Dict
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -28,6 +28,30 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         arg2 = step * (self.warmup_steps ** -1.5)
 
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+
+
+def load_transformer(
+        config: Dict,
+        tokenizer_source: tfds.features.text.SubwordTextEncoder,
+        tokenizer_target: tfds.features.text.SubwordTextEncoder
+) -> Transformer:
+    # Set hyperparameters
+    num_layers = config["num_layers"]
+    d_model = config["d_model"]
+    dff = config["dff"]
+    num_heads = config["num_heads"]
+    dropout_rate = config["dropout_rate"]
+
+    source_vocab_size = tokenizer_source.vocab_size + 2
+    target_vocab_size = tokenizer_target.vocab_size + 2
+    tf.print(f"Source_vocab_size = {source_vocab_size} and Target_vocab_size = {target_vocab_size}")
+
+    transformer = Transformer(num_layers, d_model, num_heads, dff,
+                              source_vocab_size, target_vocab_size,
+                              pe_input=source_vocab_size,
+                              pe_target=target_vocab_size,
+                              rate=dropout_rate)
+    return transformer
 
 
 def create_padding_mask(seq):
