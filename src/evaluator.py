@@ -89,7 +89,6 @@ def generate_predictions(
     with open(pred_file_path, "w", encoding="utf-8") as f_out:
         for index in range(len(sorted_keys)):
             f_out.write(f"{results[sorted_keys[index]]}\n")
-
     tf.print(f"Time for prediction: {time.time() - start} seconds")
 
 
