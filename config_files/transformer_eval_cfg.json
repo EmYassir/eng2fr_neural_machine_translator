@@ -6,6 +6,7 @@
   "dff": 1024,
   "num_heads": 4,
   "dropout_rate": 0.1,
+  "translation_batch_size": 32,
   "checkpoint_path_best": "checkpoints/transformer_augmented/best",
   "tokenizer_source_path": "tokenizer/tokenizer_en.save",
   "tokenizer_target_path": "tokenizer/tokenizer_fr.save"
