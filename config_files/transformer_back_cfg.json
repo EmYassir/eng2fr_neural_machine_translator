@@ -1,8 +1,8 @@
 {
   "num_examples": null,
-  "num_layers": 5,
-  "d_model": 512,
-  "dff": 2048,
+  "num_layers": 3,
+  "d_model": 256,
+  "dff": 1024,
   "num_heads": 2,
   "dropout_rate": 0.1,
   "batch_size": 64,
