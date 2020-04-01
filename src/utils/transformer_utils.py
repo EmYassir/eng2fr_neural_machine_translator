@@ -1,7 +1,7 @@
 """
 Utility functions for Transformer model
 """
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Generator
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -343,13 +343,13 @@ def translate_file(transformer: Transformer,
     sorted_inputs, sorted_keys = _get_sorted_inputs(input_file, max_lines_process)
     num_decode_batches = (len(sorted_inputs) - 1) // batch_size + 1
 
-    def input_generator() -> List[int]:
+    def input_generator() -> Generator[List[int], None, None]:
         """
         Generator that yield encoded sentence from sorted inputs
         """
-        for i, line in enumerate(sorted_inputs):
-            if i % batch_size == 0:
-                batch_num = (i // batch_size) + 1
+        for j, line in enumerate(sorted_inputs):
+            if j % batch_size == 0:
+                batch_num = (j // batch_size) + 1
                 print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
             yield _encode_and_add_tokens(line, tokenizer_source)
 

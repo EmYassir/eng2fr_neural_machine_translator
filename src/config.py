@@ -12,6 +12,7 @@ class ConfigEvalTransformer(TypedDict):
     checkpoint_path_best: str
     tokenizer_source_path: str
     tokenizer_target_path: str
+    translation_batch_size: int
 
 
 class ConfigTrainTransformer(TypedDict):
