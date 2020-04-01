@@ -22,7 +22,7 @@ def get_summary_tf(save_path: str, hparams: Dict):
 def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
     hparams = {
         "num_layers": config["num_layers"],
-        "d_model": config["num_layers"],
+        "d_model": config["d_model"],
         "dff": config["dff"],
         "num_heads": config["num_heads"],
         "dropout_rate": config["dropout_rate"],
