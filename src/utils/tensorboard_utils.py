@@ -27,6 +27,8 @@ def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
         "num_heads": config["num_heads"],
         "dropout_rate": config["dropout_rate"],
         "batch_size": config["batch_size"],
+        "source_unaligned": config["source_unaligned"],
+        "target_unaligned": config["target_unaligned"],
         "source_target_vocab_size": config["source_target_vocab_size"],
         "target_target_vocab_size": config["target_target_vocab_size"],
     }

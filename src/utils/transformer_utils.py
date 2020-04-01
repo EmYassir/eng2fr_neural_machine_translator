@@ -295,7 +295,7 @@ def _encode_and_add_tokens(sentence: str, tokenizer: tfds.features.text.SubwordT
     """
     Encode sentence and add start and end tokens
     :param sentence: Input sentence
-    :param subtokenizer:
+    :param tokenizer:
     :return:
     """
     start_token = tokenizer.vocab_size

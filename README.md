@@ -1,5 +1,5 @@
 # ift6759_project2
-Low-ressource machine transaltion system for IFT6759 course
+Low-ressource machine translation system for IFT6759 course
 
 ## Run the evaluator.py on the test set
 We use the bash script in `scripts/evaluator.sh` to run the evaluation tests. The script
