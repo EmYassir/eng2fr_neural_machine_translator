@@ -16,6 +16,7 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule, create_masks, load_transformer
+from src.config import ConfigTrainTransformer
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -52,31 +53,20 @@ def get_summary_tf(save_path: str):
     return train_summary_writer, val_summary_writer
 
 
-def main() -> None:
+def train_transformer(
+        config_path: str,
+        data_path: str,
+        save_path: str,
+        restore_checkpoint: bool
+) -> None:
     """
     Train the Transformer model
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg_path", type=str,
-                        help="path to the JSON config file used to define train parameters")
-    parser.add_argument('--restore_checkpoint',
-                        help='will restore the latest checkpoint',
-                        action='store_true')
-    parser.add_argument("--data_path", type=str,
-                        help="path to the directory where the data is", default=project_root())
-    parser.add_argument("--save_path", type=str,
-                        help="path to the directory where to save model/tokenizer", default=project_root())
-    args = parser.parse_args()
-    data_path = args.data_path
-    save_path = args.save_path
-    config_path = args.cfg_path
-    restore_checkpoint = args.restore_checkpoint
-
     tf.random.set_seed(42)  # Set seed for reproducibility
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
     with open(config_path, "r") as config_file:
-        config = json.load(config_file)
+        config: ConfigTrainTransformer = json.load(config_file)
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
@@ -227,7 +217,7 @@ def main() -> None:
         val_accuracy(tar_real, predictions)
 
     train_summary_writer, val_summary_writer = get_summary_tf(save_path)
-    best_val_accuracy = 0
+    best_val_accuracy = -1
     for epoch in range(epochs):
         start = time.time()
 
@@ -267,6 +257,25 @@ def main() -> None:
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cfg_path", type=str,
+                        help="path to the JSON config file used to define train parameters")
+    parser.add_argument('--restore_checkpoint',
+                        help='will restore the latest checkpoint',
+                        action='store_true')
+    parser.add_argument("--data_path", type=str,
+                        help="path to the directory where the data is", default=project_root())
+    parser.add_argument("--save_path", type=str,
+                        help="path to the directory where to save model/tokenizer", default=project_root())
+    args = parser.parse_args()
+    data_path = args.data_path
+    save_path = args.save_path
+    config_path = args.cfg_path
+    restore_checkpoint = args.restore_checkpoint
+    train_transformer(config_path, data_path, save_path, restore_checkpoint)
 
 
 if __name__ == "__main__":

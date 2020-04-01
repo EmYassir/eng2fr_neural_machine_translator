@@ -20,7 +20,7 @@ to make sure that the evaluator script was working, where the `validation.lang` 
 ## Training the Transformer
 From the project root folder, type the following command
 ```bash
-python src/train_transformer.py --cfg_path config_files/transformer_cfg.json
+python -m src.train_transformer --cfg_path config_files/transformer_cfg.json
 ```
 Note, the content of the data folder should be the same as the data folder of the shared team directory on Helios
 
@@ -28,7 +28,7 @@ Note, the content of the data folder should be the same as the data folder of th
 The generate predictions is currently configured for the transformer model. Make sure the config file path is up
 to date and load the necessary parameters
 ```bash
-python src/evaluator.py --target-file-path path_to_target_file --input-file-path path_to_input_file
+python -m src.evaluator --target-file-path path_to_target_file --input-file-path path_to_input_file
 ```
 
 ## Generate synthetic data

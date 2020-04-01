@@ -49,8 +49,8 @@ def generate_predictions(
     tf.print(f"Using config_file={config_file}")
     config_path = os.path.join(project_root(), "config_files", config_file)
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
-    with open(config_path, "r") as config_file:
-        config = json.load(config_file)
+    with open(config_path, "r") as f_in:
+        config = json.load(f_in)
 
     debug = config["debug"]  # Write predictions to debug_predictions if True
 

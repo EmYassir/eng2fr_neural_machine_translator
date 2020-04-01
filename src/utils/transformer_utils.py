@@ -1,13 +1,13 @@
 """
 Utility functions for Transformer model
 """
-
-from typing import Tuple, Dict
+from typing import Tuple, Union
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+from src.config import ConfigEvalTransformer, ConfigTrainTransformer
 from src.models.Transformer import Transformer
 
 
@@ -31,7 +31,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 
 def load_transformer(
-        config: Dict,
+        config: Union[ConfigTrainTransformer, ConfigEvalTransformer],
         tokenizer_source: tfds.features.text.SubwordTextEncoder,
         tokenizer_target: tfds.features.text.SubwordTextEncoder
 ) -> Transformer:

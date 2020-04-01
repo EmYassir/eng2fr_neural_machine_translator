@@ -5,13 +5,14 @@ Utility functions to manipulate data
 from typing import List, Optional, Tuple
 from pathlib import Path
 
+from gensim.models import KeyedVectors
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
 
-def project_root() -> Path:
+def project_root() -> str:
     """Returns project root folder."""
-    return Path(__file__).parent.parent.parent
+    return str(Path(__file__).parent.parent.parent)
 
 
 def preprocess_sentence(sentence: str) -> str:
@@ -93,7 +94,7 @@ def create_transformer_dataset(source: str, target: Optional[str],
     return dataset
 
 
-def tokenize(lang: List[str], lang_model: Optional[object]) -> Tuple:
+def tokenize(lang: List[str], lang_model: Optional[KeyedVectors]) -> Tuple:
     """
     Transforms a list of sentence into a list of list of indexes the correspond to their index in the
     language model with a +1 offset
@@ -131,7 +132,7 @@ def load_dataset(input_path: str, target_path: Optional[str], max_seq_length: Op
     """
     Load a dataset by creating list of indexes from source and target files data
     :param input_path: path to training.lang1 file
-    :param target_path: path to trainging.lang2 file
+    :param target_path: path to training.lang2 file
     :param max_seq_length: maximum length of sequence allowed (use only for training)
     :param num_examples: maximum of examples used, takes all if None
     :param inp_lang_model: input language model (ex: Word2Vec from gensim)
