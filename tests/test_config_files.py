@@ -14,7 +14,6 @@ class MyTestCase(unittest.TestCase):
     def test_transformer_cfg_files_integrity(self):
         """This will throw an error if a transformer_cfg file (eval or train) has missing keys"""
         for file in self.all_files:
-            print(f"File = {file}")
             if "transformer_eval" in file:
                 with open(file, "r") as f_in:
                     config = json.load(f_in)
@@ -25,7 +24,7 @@ class MyTestCase(unittest.TestCase):
                     keys_class = ConfigTrainTransformer.__annotations__.keys()
             else:
                 continue
-
+            print(f"File = {file}")
             self.assertListEqual(sorted(list(keys_class)), sorted(list(config.keys())))
 
 

@@ -30,7 +30,6 @@ jobs:
       run: |
         pip install mypy
         mypy --ignore-missing-imports .
-
     - name: Test with pytest
       run: |
         pip install pytest

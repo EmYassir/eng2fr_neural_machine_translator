@@ -6,7 +6,6 @@ import argparse
 import json
 import os
 import time
-import datetime
 from typing import Union, List
 
 import tensorflow as tf
@@ -16,6 +15,7 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule, create_masks, load_transformer
+from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
 from src.config import ConfigTrainTransformer
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -43,16 +43,6 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
     return tokenizer
 
 
-def get_summary_tf(save_path: str):
-    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = os.path.join(logs_dir, current_time, 'train')
-    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
-    return train_summary_writer, val_summary_writer
-
-
 def train_transformer(
         config_path: str,
         data_path: str,
@@ -65,8 +55,8 @@ def train_transformer(
     tf.random.set_seed(42)  # Set seed for reproducibility
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
-    with open(config_path, "r") as config_file:
-        config: ConfigTrainTransformer = json.load(config_file)
+    with open(config_path, "r") as f_in:
+        config: ConfigTrainTransformer = json.load(f_in)
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
@@ -99,8 +89,8 @@ def train_transformer(
 
     transformer = load_transformer(config, tokenizer_source, tokenizer_target)
 
-    with open(source_training, "r", encoding="utf-8") as train_source:
-        buffer_size = sum([1 for _ in train_source.readlines()])
+    with open(source_training, "r", encoding="utf-8") as f_train_source:
+        buffer_size = sum([1 for _ in f_train_source.readlines()])
 
     def encode(source, target):
         # Add start and end token
@@ -216,7 +206,7 @@ def train_transformer(
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    train_summary_writer, val_summary_writer = get_summary_tf(save_path)
+    train_summary_writer, val_summary_writer = get_summary_tf(save_path, hparams_transformer(config))
     best_val_accuracy = -1
     for epoch in range(epochs):
         start = time.time()
