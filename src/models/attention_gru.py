@@ -5,6 +5,7 @@ Machine translation model that generate prediction using GRU with attention
 from typing import Optional
 
 import numpy as np
+from gensim.models import KeyedVectors
 import tensorflow as tf
 from tensorflow.keras.layers import Embedding
 
@@ -14,7 +15,7 @@ class Encoder(tf.keras.Model):
     Part of the model that takes a sequence of indexes and return a sequence of embeddings using GRU for context
     """
     def __init__(self, vocab_size: int, embedding_dim: int, enc_units: int, batch_size: int,
-                 lang_model: Optional[object] = None) -> None:
+                 lang_model: Optional[KeyedVectors] = None) -> None:
         """
         Initialize the encoder
         :param vocab_size: size of input language vocabulary
@@ -107,7 +108,7 @@ class Decoder(tf.keras.Model):
     given by the attention module
     """
     def __init__(self, vocab_size: int, embedding_dim: int, dec_units: int, batch_size: int,
-                 lang_model: Optional[object]) -> object:
+                 lang_model: Optional[KeyedVectors]):
         """
         Initialize decoder
         :param vocab_size: size of target language vocabulary

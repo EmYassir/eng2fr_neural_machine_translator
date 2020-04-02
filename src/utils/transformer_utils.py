@@ -1,13 +1,13 @@
 """
 Utility functions for Transformer model
 """
-
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple, Union, Generator
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+from src.config import ConfigEvalTransformer, ConfigTrainTransformer
 from src.models.Transformer import Transformer
 
 
@@ -30,12 +30,14 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
 
-def load_transformer(config: Dict,
-                     tokenizer_source: tfds.features.text.SubwordTextEncoder,
-                     tokenizer_target: tfds.features.text.SubwordTextEncoder) -> Transformer:
+def load_transformer(
+        config: Union[ConfigTrainTransformer, ConfigEvalTransformer],
+        tokenizer_source: tfds.features.text.SubwordTextEncoder,
+        tokenizer_target: tfds.features.text.SubwordTextEncoder
+) -> Transformer:
     """
     Load transformer model
-    :param config: path to config file
+    :param config: loaded config file as dictionnary
     :param tokenizer_source: Source language tokenizer
     :param tokenizer_target: Target language tokenizer
     :return: A transformer model created from parameters in config
@@ -293,7 +295,7 @@ def _encode_and_add_tokens(sentence: str, tokenizer: tfds.features.text.SubwordT
     """
     Encode sentence and add start and end tokens
     :param sentence: Input sentence
-    :param subtokenizer:
+    :param tokenizer:
     :return:
     """
     start_token = tokenizer.vocab_size
@@ -341,13 +343,13 @@ def translate_file(transformer: Transformer,
     sorted_inputs, sorted_keys = _get_sorted_inputs(input_file, max_lines_process)
     num_decode_batches = (len(sorted_inputs) - 1) // batch_size + 1
 
-    def input_generator() -> List[int]:
+    def input_generator() -> Generator[List[int], None, None]:
         """
         Generator that yield encoded sentence from sorted inputs
         """
-        for i, line in enumerate(sorted_inputs):
-            if i % batch_size == 0:
-                batch_num = (i // batch_size) + 1
+        for j, line in enumerate(sorted_inputs):
+            if j % batch_size == 0:
+                batch_num = (j // batch_size) + 1
                 print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
             yield _encode_and_add_tokens(line, tokenizer_source)
 
