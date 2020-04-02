@@ -154,11 +154,12 @@ def evaluate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordText
 def log_prob_from_logits(logits, reduce_axis=-1):
     return logits - tf.reduce_logsumexp(logits, axis=reduce_axis, keepdims=True)
 
-# TODO : fix output (not Tuple, but tensor (just write Tensor?))
+
+# TODO : fix output (not Tuple, but tensor (just write Tensor? EagerTensor?))
 # modified evaluate() function to implement beam_search for single sentence translation
 def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
                   tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
-                  transformer: Transformer, beam_size: int) -> Tuple:
+                  transformer: Transformer, beam_size: int, alpha=0.6) -> Tuple:
     """
     Takes an input sentence and generate sequences of tokens for its translation
     using beam_search
@@ -168,11 +169,12 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
     :param max_length_pred: Maximum length of output sequence
     :param transformer: Trained Transformer model
     :param beam_size: size of search beam
+    :param alpha: factor to set sequence length penalty
     :return: The sequence of token ids in target language, the attention weights
     """
     # Length penalty applied to longer sequence scores = (5+len(output_sequence)/6) ^ alpha
     # length penalty is neutralized when alpha = 0.0; Wu et al 2016 suggest alpha = [0.6-0.7]
-    alpha = 0.6
+    alpha = alpha
     # Initialized to 1 =  no length penalty
     length_penalty = 1.0
 
@@ -187,11 +189,11 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
     decoder_input = [tokenizer_target.vocab_size]
     deco_input = tf.expand_dims(decoder_input, 0)
 
-    # Initialize log (probability) of sequence score to 0 (prob_sequence = 1.0)
+    # Initialize log (probability) of sequence score to 0.0 (prob_sequence = 1.0)
     # key (string) = step identifier ; value (tuple) = (output sequence, score, flag)
     # where score = log(prob_sequence), and flag = 1 if sequence is finished (end_token outputed)
     candidates = {
-        'Step0': (deco_input, 0, 0)}
+        'Step0': (deco_input, 0.0, 0)}
 
     for i in range(max_length_pred):
         #  Set length penalty to adjust score based on increasing sequence length
@@ -208,13 +210,14 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
             sequence = candidate[0]
             score = candidate[1]
             flag = candidate[2]
-            # if sequence is finished (flag = 1)
+            # if sequence is finished (flag = 1) and it contains at least one token
             if flag == 1:
-                # copy key-value pair as-is into next_candidates dictionary
-                next_candidates[label] = candidate
+                # TODO : determine if this is necessary
+                if sequence.shape[-1] > 1:
+                    # copy key-value pair as-is into next_candidates dictionary
+                    next_candidates[label] = candidate
             # otherwise expand sequence
             else:
-                k_num = 0
                 enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, sequence)
                 # predictions.shape == (batch_size, seq_len, vocab_size)
                 predictions, attention_weights = transformer(encoder_input,
@@ -253,8 +256,12 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
                         new_seq = tf.concat([sequence, pred_id], axis=-1)
                         next_candidates[entry_label] = (new_seq, new_score, 0)
 
+                        # To help debug
+                        # pred_sentence = tokenizer_target.decode([i for i in tf.squeeze(new_seq, axis=0)
+                        #                                        if i < tokenizer_target.vocab_size])
+                        # print(entry_label, ' : ', pred_sentence)
+
         # Reduce number of next candidates to beam_size
-        # {k: v for k, v in sorted(next_candidates.items())}
         # compare scores and identify top k
         allscores = []
         for key, value in next_candidates.items():
@@ -326,7 +333,7 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_source,
 
 def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
               tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
-              transformer: Transformer, beam_size=None, plot: str = "") -> str:
+              transformer: Transformer, beam_size=None, alpha=0.6, plot: str = "") -> str:
     """
     Translate a sentence from source to target language
     :param inp_sentence: input sentence in source language
@@ -335,6 +342,7 @@ def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTex
     :param max_length_pred: maximum number of tokens in output sentence
     :param transformer: Trained Transformer model
     :param beam_size: size of beam search to generate translation (None = use gready search)
+    :param alpha: factor to set sequence length penalty for beam search
     :param plot: Name of layer to plot (will not plot if "")
     :return: The translated sentence in target language
     """
@@ -347,7 +355,7 @@ def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTex
 
     else:
         result = evaluate_beam(inp_sentence, tokenizer_source, tokenizer_target, max_length_pred,
-                               transformer, beam_size)
+                               transformer, beam_size, alpha)
         predicted_sentence = tokenizer_target.decode([i for i in result if i < tokenizer_target.vocab_size])
 
     return predicted_sentence
