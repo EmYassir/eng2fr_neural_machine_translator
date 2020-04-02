@@ -154,7 +154,7 @@ def evaluate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordText
 def log_prob_from_logits(logits, reduce_axis=-1):
     return logits - tf.reduce_logsumexp(logits, axis=reduce_axis, keepdims=True)
 
-
+# TODO : fix output (not Tuple, but tensor (just write Tensor?))
 # modified evaluate() function to implement beam_search for single sentence translation
 def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
                   tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
@@ -174,7 +174,7 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
     # length penalty is neutralized when alpha = 0.0; Wu et al 2016 suggest alpha = [0.6-0.7]
     alpha = 0.6
     # Initialized to 1 =  no length penalty
-    length_penalty = 1
+    length_penalty = 1.0
 
     start_token = [tokenizer_source.vocab_size]
     end_token = [tokenizer_source.vocab_size + 1]
@@ -187,7 +187,7 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
     decoder_input = [tokenizer_target.vocab_size]
     deco_input = tf.expand_dims(decoder_input, 0)
 
-    # Initialize probability of sequence score to 0 (prob_sequence = 1.0)
+    # Initialize log (probability) of sequence score to 0 (prob_sequence = 1.0)
     # key (string) = step identifier ; value (tuple) = (output sequence, score, flag)
     # where score = log(prob_sequence), and flag = 1 if sequence is finished (end_token outputed)
     candidates = {
@@ -234,14 +234,13 @@ def evaluate_beam(inp_sentence: str, tokenizer_source: tfds.features.text.Subwor
                 predicted_values, predicted_ids = tf.nn.top_k(norm_predict, k=beam_size)
                 # predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
 
-                # compute score and build sequence for each top word candidate
+                # compute score and build sequence for each top word
                 for k in range(beam_size):
-                    k_num += 1
-                    pred_val = tf.cast(predicted_values[0, 0, k], tf.int32)
-                    pred_id = tf.cast(predicted_ids[0, 0, k], tf.int32)
+                    pred_val = tf.cast(predicted_values[:, :, k], tf.float32)
+                    pred_id = tf.cast(predicted_ids[:, :, k], tf.int32)
 
                     # Create unique key for dictionary entry
-                    entry_label = 'Step'+str(i+1)+'_'+str(candi_num)+str(k_num)
+                    entry_label = 'Step'+str(i+1)+'_'+str(candi_num)+str(k+1)
 
                     # Verify if sequence is finished (predicted_id is equal to target end token)
                     if pred_id == tokenizer_target.vocab_size + 1:
