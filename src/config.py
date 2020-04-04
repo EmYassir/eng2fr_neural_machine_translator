@@ -1,3 +1,5 @@
+from typing import Optional
+
 from typing_extensions import TypedDict
 
 
@@ -36,3 +38,7 @@ class ConfigTrainTransformer(TypedDict):
     checkpoint_path_best: str
     tokenizer_source_path: str
     tokenizer_target_path: str
+    source_lang_model: Optional[str]
+    target_lang_model: Optional[str]
+    train_encoder_embedding: bool
+    train_decoder_embedding: bool

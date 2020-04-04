@@ -1,5 +1,7 @@
 """train a Word2Vec model"""
 from gensim.models import Word2Vec
+from src.utils.embeddings_utils import break_file_into_subwords
+import tensorflow_datasets as tfds
 
 
 def word2vec(tokens_path: str, output: str, size: int = 100, window: int = 5, min_count: int = 5,
@@ -19,7 +21,6 @@ def word2vec(tokens_path: str, output: str, size: int = 100, window: int = 5, mi
     with open(tokens_path, 'r') as tokens_file:
         sentence = tokens_file.readline()
         while sentence:
-            # TODO insert preprocessing here ? (stemming, lemmatization, subwords /)
             sentences.append(sentence.split())
             sentence = tokens_file.readline()
     # train model
@@ -32,7 +33,12 @@ def word2vec(tokens_path: str, output: str, size: int = 100, window: int = 5, mi
 
 if __name__ == "__main__":
     # change path and parameters if necessary
-    word2vec("data/no_punctuation/start_end_english",
-             "src/embedding_models/word2vec/english_w2v",
-             size=100,
-             workers=8, min_count=5)
+    tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file("tokenizer/tokenizer_en.save")
+
+    break_file_into_subwords("data/no_punctuation/unaligned.en", "data/no_punctuation/unaligned_subwords.en", tokenizer)
+
+    word2vec("data/no_punctuation/unaligned_subwords.en",
+             "src/embedding_models/word2vec/english_w2v_subwords",
+             size=256,
+             workers=8,
+             min_count=1)

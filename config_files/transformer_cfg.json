@@ -18,5 +18,9 @@
   "checkpoint_path": "checkpoints/transformer_augmented/train",
   "checkpoint_path_best": "checkpoints/transformer_augmented/best",
   "tokenizer_source_path": "tokenizer/tokenizer_en.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_fr.save"
+  "tokenizer_target_path": "tokenizer/tokenizer_fr.save",
+  "source_lang_model": null,
+  "target_lang_model": null,
+  "train_encoder_embedding": true,
+  "train_decoder_embedding": true
 }
