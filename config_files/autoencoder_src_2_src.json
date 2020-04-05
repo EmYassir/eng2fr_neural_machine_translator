@@ -1,0 +1,23 @@
+{
+  "num_examples": null,
+  "num_layers": 4,
+  "d_model": 256,
+  "dff": 1024,
+  "num_heads": 4,
+  "dropout_rate": 0.1,
+  "batch_size": 64,
+  "epochs": 100,
+  "source_unaligned": "data/no_punctuation/unaligned.en",
+  "source_training": "data/training_augmented.lang1",
+  "source_validation": "data/validation.lang1",
+  "source_target_vocab_size": 8192,
+  "target_unaligned": "data/unaligned.fr",
+  "target_training": "data/training_augmented.lang2",
+  "target_validation": "data/validation.lang2",
+  "target_target_vocab_size": 8192,
+  "checkpoint_path": "checkpoints/autoencoder_src2src/train",
+  "checkpoint_path_best_encoder": "checkpoints/autoencoder_src2src/best_encoder",
+  "checkpoint_path_best_decoder": "checkpoints/autoencoder_src2src/best_decoder",
+  "tokenizer_source_path": "tokenizer/tokenizer_src2src_en.save",
+  "tokenizer_target_path": "tokenizer/tokenizer_src2src_fr.save"
+}
