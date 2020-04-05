@@ -1,14 +1,15 @@
 """
 Utility functions for Transformer model
 """
-
-from typing import Dict, List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
+from src.config import ConfigEvalTransformer, ConfigTrainTransformer
 from src.models.Transformer import Transformer
+from src.utils.embeddings_utils import get_pretrained_weights
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -30,14 +31,24 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
 
-def load_transformer(config: Dict,
-                     tokenizer_source: tfds.features.text.SubwordTextEncoder,
-                     tokenizer_target: tfds.features.text.SubwordTextEncoder) -> Transformer:
+def load_transformer(
+        config: Union[ConfigTrainTransformer, ConfigEvalTransformer],
+        tokenizer_source: tfds.features.text.SubwordTextEncoder,
+        tokenizer_target: tfds.features.text.SubwordTextEncoder,
+        source_lang_model_path: Optional[str] = None,
+        target_lang_model_path: Optional[str] = None,
+        train_encoder_embedding: bool = True,
+        train_decoder_embedding: bool = True
+) -> Transformer:
     """
     Load transformer model
-    :param config: path to config file
+    :param config: Loaded config file as dictionary
     :param tokenizer_source: Source language tokenizer
     :param tokenizer_target: Target language tokenizer
+    :param source_lang_model_path: Path to source language model (ex word2vec)
+    :param target_lang_model_path: Path to target language model (ex word2vec)
+    :param train_encoder_embedding: Encoder embedding are trainable if True
+    :param train_decoder_embedding: Decoder embedding are trainable if True
     :return: A transformer model created from parameters in config
     """
     # Set hyperparameters
@@ -55,7 +66,25 @@ def load_transformer(config: Dict,
                               source_vocab_size, target_vocab_size,
                               pe_input=source_vocab_size,
                               pe_target=target_vocab_size,
-                              rate=dropout_rate)
+                              rate=dropout_rate,
+                              train_encoder_embedding=train_encoder_embedding,
+                              train_decoder_embedding=train_decoder_embedding
+                              )
+    # add pre-trained weights to embedding if given language models
+    if source_lang_model_path is not None:
+        encoder = transformer.get_layer("encoder")
+        encoder.embedding.build(None)
+        embedding_weights = encoder.embedding.get_weights()[0]
+        pretrained_weights = get_pretrained_weights(embedding_weights, tokenizer_source, source_lang_model_path)
+        encoder.embedding.set_weights([pretrained_weights])
+
+    if target_lang_model_path is not None:
+        decoder = transformer.get_layer("decoder")
+        decoder.embedding.build(None)
+        embedding_weigths = decoder.embedding.get_weights()[0]
+        pretrained_weigths = get_pretrained_weights(embedding_weigths, tokenizer_target, target_lang_model_path)
+        decoder.embedding.set_weights([pretrained_weigths])
+
     return transformer
 
 
@@ -293,7 +322,7 @@ def _encode_and_add_tokens(sentence: str, tokenizer: tfds.features.text.SubwordT
     """
     Encode sentence and add start and end tokens
     :param sentence: Input sentence
-    :param subtokenizer:
+    :param tokenizer:
     :return:
     """
     start_token = tokenizer.vocab_size
@@ -341,13 +370,13 @@ def translate_file(transformer: Transformer,
     sorted_inputs, sorted_keys = _get_sorted_inputs(input_file, max_lines_process)
     num_decode_batches = (len(sorted_inputs) - 1) // batch_size + 1
 
-    def input_generator() -> List[int]:
+    def input_generator() -> Generator[List[int], None, None]:
         """
         Generator that yield encoded sentence from sorted inputs
         """
-        for i, line in enumerate(sorted_inputs):
-            if i % batch_size == 0:
-                batch_num = (i // batch_size) + 1
+        for j, line in enumerate(sorted_inputs):
+            if j % batch_size == 0:
+                batch_num = (j // batch_size) + 1
                 print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
             yield _encode_and_add_tokens(line, tokenizer_source)
 

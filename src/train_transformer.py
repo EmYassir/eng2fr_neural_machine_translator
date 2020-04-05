@@ -6,16 +6,19 @@ import argparse
 import json
 import os
 import time
-import datetime
-from typing import Union, List
+from typing import List, Union
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
-from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
-from src.utils.transformer_utils import CustomSchedule, create_masks, load_transformer
+from src.config import ConfigTrainTransformer
+from src.utils.data_utils import (build_tokenizer, create_transformer_dataset,
+                                  project_root)
+from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
+from src.utils.transformer_utils import (CustomSchedule, create_masks,
+                                         load_transformer)
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -42,41 +45,20 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
     return tokenizer
 
 
-def get_summary_tf(save_path: str):
-    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = os.path.join(logs_dir, current_time, 'train')
-    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
-    return train_summary_writer, val_summary_writer
-
-
-def main() -> None:
+def train_transformer(
+        config_path: str,
+        data_path: str,
+        save_path: str,
+        restore_checkpoint: bool
+) -> None:
     """
     Train the Transformer model
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg_path", type=str,
-                        help="path to the JSON config file used to define train parameters")
-    parser.add_argument('--restore_checkpoint',
-                        help='will restore the latest checkpoint',
-                        action='store_true')
-    parser.add_argument("--data_path", type=str,
-                        help="path to the directory where the data is", default=project_root())
-    parser.add_argument("--save_path", type=str,
-                        help="path to the directory where to save model/tokenizer", default=project_root())
-    args = parser.parse_args()
-    data_path = args.data_path
-    save_path = args.save_path
-    config_path = args.cfg_path
-    restore_checkpoint = args.restore_checkpoint
-
     tf.random.set_seed(42)  # Set seed for reproducibility
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
-    with open(config_path, "r") as config_file:
-        config = json.load(config_file)
+    with open(config_path, "r") as f_in:
+        config: ConfigTrainTransformer = json.load(f_in)
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
@@ -84,11 +66,14 @@ def main() -> None:
     source_training = os.path.join(data_path, config["source_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
+    source_lang_model_path = config["source_lang_model"]
     source_input_files = [source_unaligned, source_training]
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
     target_validation = os.path.join(data_path, config["target_validation"])
+    target_lang_model_path = config["target_lang_model"]
+
     target_target_vocab_size = config["target_target_vocab_size"]
 
     target_input_files = [target_unaligned, target_training]
@@ -107,10 +92,17 @@ def main() -> None:
     tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
     tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
 
-    transformer = load_transformer(config, tokenizer_source, tokenizer_target)
+    train_encoder_embedding = config["train_encoder_embedding"]
+    train_decoder_embedding = config["train_decoder_embedding"]
 
-    with open(source_training, "r", encoding="utf-8") as train_source:
-        buffer_size = sum([1 for _ in train_source.readlines()])
+    transformer = load_transformer(config, tokenizer_source, tokenizer_target,
+                                   source_lang_model_path,
+                                   target_lang_model_path,
+                                   train_encoder_embedding,
+                                   train_decoder_embedding)
+
+    with open(source_training, "r", encoding="utf-8") as f_train_source:
+        buffer_size = sum([1 for _ in f_train_source.readlines()])
 
     def encode(source, target):
         # Add start and end token
@@ -159,7 +151,6 @@ def main() -> None:
     def loss_function(real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         loss_ = loss_object(real, pred)
-
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
 
@@ -226,8 +217,8 @@ def main() -> None:
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    train_summary_writer, val_summary_writer = get_summary_tf(save_path)
-    best_val_accuracy = 0
+    train_summary_writer, val_summary_writer = get_summary_tf(save_path, hparams_transformer(config))
+    best_val_accuracy = -1
     for epoch in range(epochs):
         start = time.time()
 
@@ -267,6 +258,25 @@ def main() -> None:
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cfg_path", type=str,
+                        help="path to the JSON config file used to define train parameters")
+    parser.add_argument('--restore_checkpoint',
+                        help='will restore the latest checkpoint',
+                        action='store_true')
+    parser.add_argument("--data_path", type=str,
+                        help="path to the directory where the data is", default=project_root())
+    parser.add_argument("--save_path", type=str,
+                        help="path to the directory where to save model/tokenizer", default=project_root())
+    args = parser.parse_args()
+    data_path = args.data_path
+    save_path = args.save_path
+    config_path = args.cfg_path
+    restore_checkpoint = args.restore_checkpoint
+    train_transformer(config_path, data_path, save_path, restore_checkpoint)
 
 
 if __name__ == "__main__":
