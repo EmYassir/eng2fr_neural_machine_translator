@@ -8,6 +8,6 @@
   "dropout_rate": 0.1,
   "translation_batch_size": 32,
   "checkpoint_path_best": "checkpoints/transformer/back/best",
-  "tokenizer_source_path": "tokenizer/tokenizer_fr_back.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_en_back.save"
+  "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
+  "tokenizer_target_path": "tokenizer/tokenizer_en.save"
 }

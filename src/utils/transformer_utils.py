@@ -1,7 +1,7 @@
 """
 Utility functions for Transformer model
 """
-from typing import List, Optional, Tuple, Union, Generator
+from typing import Generator, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -9,6 +9,7 @@ import tensorflow_datasets as tfds
 
 from src.config import ConfigEvalTransformer, ConfigTrainTransformer
 from src.models.Transformer import Transformer
+from src.utils.embeddings_utils import get_pretrained_weights
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -33,13 +34,21 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 def load_transformer(
         config: Union[ConfigTrainTransformer, ConfigEvalTransformer],
         tokenizer_source: tfds.features.text.SubwordTextEncoder,
-        tokenizer_target: tfds.features.text.SubwordTextEncoder
+        tokenizer_target: tfds.features.text.SubwordTextEncoder,
+        source_lang_model_path: Optional[str] = None,
+        target_lang_model_path: Optional[str] = None,
+        train_encoder_embedding: bool = True,
+        train_decoder_embedding: bool = True
 ) -> Transformer:
     """
     Load transformer model
-    :param config: loaded config file as dictionnary
+    :param config: Loaded config file as dictionary
     :param tokenizer_source: Source language tokenizer
     :param tokenizer_target: Target language tokenizer
+    :param source_lang_model_path: Path to source language model (ex word2vec)
+    :param target_lang_model_path: Path to target language model (ex word2vec)
+    :param train_encoder_embedding: Encoder embedding are trainable if True
+    :param train_decoder_embedding: Decoder embedding are trainable if True
     :return: A transformer model created from parameters in config
     """
     # Set hyperparameters
@@ -57,7 +66,25 @@ def load_transformer(
                               source_vocab_size, target_vocab_size,
                               pe_input=source_vocab_size,
                               pe_target=target_vocab_size,
-                              rate=dropout_rate)
+                              rate=dropout_rate,
+                              train_encoder_embedding=train_encoder_embedding,
+                              train_decoder_embedding=train_decoder_embedding
+                              )
+    # add pre-trained weights to embedding if given language models
+    if source_lang_model_path is not None:
+        encoder = transformer.get_layer("encoder")
+        encoder.embedding.build(None)
+        embedding_weights = encoder.embedding.get_weights()[0]
+        pretrained_weights = get_pretrained_weights(embedding_weights, tokenizer_source, source_lang_model_path)
+        encoder.embedding.set_weights([pretrained_weights])
+
+    if target_lang_model_path is not None:
+        decoder = transformer.get_layer("decoder")
+        decoder.embedding.build(None)
+        embedding_weigths = decoder.embedding.get_weights()[0]
+        pretrained_weigths = get_pretrained_weights(embedding_weigths, tokenizer_target, target_lang_model_path)
+        decoder.embedding.set_weights([pretrained_weigths])
+
     return transformer
 
 
