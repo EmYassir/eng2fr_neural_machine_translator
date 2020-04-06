@@ -42,3 +42,20 @@ class ConfigTrainTransformer(TypedDict):
     target_lang_model: Optional[str]
     train_encoder_embedding: bool
     train_decoder_embedding: bool
+
+
+class ConfigTrainAutoEncoder(TypedDict):
+    num_examples: int
+    batch_size: int
+    epochs: int
+    lambda_factor: float
+    source_unaligned: str
+    source_training: str
+    source_validation: str
+    source_target_vocab_size: int
+    target_unaligned: str
+    target_training: str
+    target_validation: str
+    target_target_vocab_size: int
+    tokenizer_source_path: str
+    tokenizer_target_path: str

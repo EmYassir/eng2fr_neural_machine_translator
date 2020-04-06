@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from src.config import ConfigEvalTransformer, ConfigTrainTransformer
+from src.config import ConfigEvalTransformer, ConfigTrainTransformer, ConfigTrainAutoEncoder
 from src.models.Transformer import Transformer
+from src.models.Autoencoder import AutoEncoder
 from src.utils.embeddings_utils import get_pretrained_weights
 
 
@@ -85,8 +86,9 @@ def load_transformer(
         pretrained_weigths = get_pretrained_weights(embedding_weigths, tokenizer_target, target_lang_model_path)
         decoder.embedding.set_weights([pretrained_weigths])
 
-    return transformer
-
+    return transformer    
+    
+    
 
 def create_padding_mask(seq):
     """

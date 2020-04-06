@@ -5,7 +5,7 @@
   "dff": 1024,
   "num_heads": 2,
   "dropout_rate": 0.1,
-  "batch_size": 64,
+  "translation_batch_size": 64,
   "epochs": 100,
   "source_unaligned": "data/unaligned.fr",
   "source_training": "data/training.lang2",

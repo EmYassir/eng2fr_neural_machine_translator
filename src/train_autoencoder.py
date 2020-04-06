@@ -11,11 +11,11 @@ from typing import Union, List
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
-from src.utils.transformer_utils import CustomSchedule, load_transformer
+from src.utils.transformer_utils import CustomSchedule
+from src.models.Autoencoder import AutoEncoder
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -38,7 +38,6 @@ def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], voc
         tf.print(f"{name} tokenizer saved to {path}")
         # Reload to avoid weird error about mismatch vocabulary size
         tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
-
     return tokenizer
 
 
@@ -51,10 +50,10 @@ def get_summary_tf(save_path: str):
     val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
     return train_summary_writer, val_summary_writer
 
-
+    
 def main() -> None:
     """
-    Train the Transformer model
+    Train the Auto-encoder model
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg_path", type=str,
@@ -80,6 +79,7 @@ def main() -> None:
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
 
+    # Necessary to build the dictionaries
     source_unaligned = os.path.join(data_path, config["source_unaligned"])
     source_training = os.path.join(data_path, config["source_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
@@ -97,17 +97,25 @@ def main() -> None:
     tokenizer_target_path = os.path.join(save_path, config["tokenizer_target_path"])
 
     # Set hyperparameters
-    d_model = config["d_model"]
     batch_size = config["batch_size"]
     epochs = config["epochs"]
+    lambda_factor = config["lambda"]
+    
+    # Open other config paths
+    with open(config["encoder_cfg_path"], "r") as config_file:
+        config_enc = json.load(config_file)
+    with open(config["decoder_cfg_path"], "r") as config_file:
+        config_dec = json.load(config_file) 
 
-    checkpoint_path = os.path.join(save_path, config["checkpoint_path"])
-    checkpoint_path_best = os.path.join(save_path, config["checkpoint_path_best"])
+    checkpoint_path_enc = os.path.join(save_path, config_enc["checkpoint_path"])
+    checkpoint_path_best_enc = os.path.join(save_path, config_enc["checkpoint_path_best"])
+    checkpoint_path_dec = os.path.join(save_path, config_dec["checkpoint_path"])
+    checkpoint_path_best_dec = os.path.join(save_path, config_dec["checkpoint_path_best"])
 
     tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
     tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
-
-    transformer = load_transformer(config, tokenizer_source, tokenizer_target)
+    
+    autoencoder = AutoEncoder(config, config_enc, config_dec, tokenizer_source, tokenizer_target)
 
     with open(source_training, "r", encoding="utf-8") as train_source:
         buffer_size = sum([1 for _ in train_source.readlines()])
@@ -149,7 +157,7 @@ def main() -> None:
 
     # Use the Adam optimizer with a custom learning rate scheduler according to the formula
     # in the paper (https://arxiv.org/abs/1706.03762)
-    learning_rate = CustomSchedule(d_model)
+    learning_rate = CustomSchedule(config_enc['d_model'] + config_dec['d_model'])
     optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
                                          epsilon=1e-9)
 
@@ -171,17 +179,32 @@ def main() -> None:
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='val_accuracy')
-
-    ckpt = tf.train.Checkpoint(transformer=transformer,
-                               optimizer=optimizer)
-
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=10)
-    ckpt_manager_best = tf.train.CheckpointManager(ckpt, checkpoint_path_best, max_to_keep=1)
+    
+    
+    def get_ckpt_managers(path, path_best, model):
+       ckpt = tf.train.Checkpoint(transformer = model)
+       ckpt_manager = tf.train.CheckpointManager(ckpt, path, max_to_keep=10)
+       ckpt_manager_best = tf.train.CheckpointManager(ckpt, path_best, max_to_keep=1) 
+       return ckpt, ckpt_manager, ckpt_manager_best
+    
+    def restore_ckpts(ckpt, ckpt_manager, path):
+       if ckpt_manager.latest_checkpoint:
+           # if a checkpoint exists, restore the latest checkpoint.
+           ckpt.restore(ckpt_manager.latest_checkpoint)
+           tf.print(f'Latest checkpoint for encoder restored from {path}')
+   
+    # Checkpoint managers for both encoder and decoder (within the autoencoder)
+    # 1. Encoder
+    ckpt_enc, ckpt_manager_enc, ckpt_manager_best_enc =  get_ckpt_managers(checkpoint_path_enc, checkpoint_path_best_enc, model=autoencoder.encoder) 
+    # 2. Decoder
+    ckpt_dec, ckpt_manager_dec, ckpt_manager_best_dec =  get_ckpt_managers(checkpoint_path_dec, checkpoint_path_best_dec, model=autoencoder.decoder) 
+    
+    # Restore checkpoints for both encoder and decoder (within the autoencoder)
     if restore_checkpoint:
-        # if a checkpoint exists, restore the latest checkpoint.
-        if ckpt_manager.latest_checkpoint:
-            ckpt.restore(ckpt_manager.latest_checkpoint)
-            tf.print(f'Latest checkpoint restored from {checkpoint_path}')
+        # 1. Encoder
+        restore_ckpts(ckpt_enc, ckpt_manager_enc, checkpoint_path_enc)
+        # 2. Decoder
+        restore_ckpts(ckpt_dec, ckpt_manager_dec, checkpoint_path_dec)
 
     train_step_signature = [
         tf.TensorSpec(shape=(None, None), dtype=tf.int64),
@@ -192,19 +215,14 @@ def main() -> None:
     def train_step(inp, tar):
         tar_inp = tar[:, :-1]
         tar_real = tar[:, 1:]
-
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-
         with tf.GradientTape() as tape:
-            predictions, _ = transformer(inp, tar_inp,
-                                         True,
-                                         enc_padding_mask,
-                                         combined_mask,
-                                         dec_padding_mask)
-            loss = loss_function(tar_real, predictions)
-
-        gradients = tape.gradient(loss, transformer.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
+            predictions = autoencoder(inp, tar_inp)
+            loss = lambda_factor * loss_function(tar_real, predictions)
+        tf.print(f'#(autoencoder.trainable_variables) = {len(autoencoder.trainable_variables)}')
+        tf.print(f'#(autoencoder.encoder.trainable_variables) = {len(autoencoder.encoder.trainable_variables)}')
+        tf.print(f'#(autoencoder.decoder.trainable_variables) = {len(autoencoder.decoder.trainable_variables)}')
+        gradients = tape.gradient(loss, autoencoder.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
 
         train_loss(loss)
         train_accuracy(tar_real, predictions)
@@ -213,16 +231,8 @@ def main() -> None:
     def validate(inp, tar):
         tar_inp = tar[:, :-1]
         tar_real = tar[:, 1:]
-
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-
-        predictions, _ = transformer(inp, tar_inp,
-                                     True,
-                                     enc_padding_mask,
-                                     combined_mask,
-                                     dec_padding_mask)
-        loss = loss_function(tar_real, predictions)
-
+        predictions = autoencoder(inp, tar_inp)
+        loss = lambda_factor * loss_function(tar_real, predictions)
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
@@ -250,11 +260,16 @@ def main() -> None:
                      f"Validation Accuracy {val_accuracy_result:.4f}")
         if val_accuracy_result > best_val_accuracy:
             best_val_accuracy = val_accuracy_result
-            ckpt_save_path_best = ckpt_manager_best.save()
-            tf.print(f"Saving best checkpoint for epoch {epoch + 1} at {ckpt_save_path_best}")
+            checkpoint_path_best_enc = ckpt_manager_best_enc.save()
+            tf.print(f"Saved best encoder checkpoint for epoch {epoch + 1} at {checkpoint_path_best_enc}")
+            checkpoint_path_best_dec = ckpt_manager_best_dec.save()
+            tf.print(f"Saved best decoder checkpoint for epoch {epoch + 1} at {checkpoint_path_best_dec}")
+            
         if (epoch + 1) % 5 == 0:
-            ckpt_save_path = ckpt_manager.save()
-            tf.print(f"Saving checkpoint for epoch {epoch + 1} at {ckpt_save_path}")
+            checkpoint_path_enc = ckpt_manager_enc.save()
+            tf.print(f"Saved encoder checkpoint for epoch {epoch + 1} at {checkpoint_path_enc}")
+            checkpoint_path_dec = ckpt_manager_dec.save()
+            tf.print(f"Saved decoder checkpoint for epoch {epoch + 1} at {checkpoint_path_dec}")
 
         # Write loss and accuracy so that they can be loaded with tensorboard
         with train_summary_writer.as_default():
@@ -265,7 +280,6 @@ def main() -> None:
             tf.summary.scalar('accuracy', val_accuracy.result(), step=epoch)
 
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
-
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
 
 
