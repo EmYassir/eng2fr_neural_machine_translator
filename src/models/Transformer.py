@@ -160,13 +160,14 @@ class DecoderLayer(tf.keras.layers.Layer):
 
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
-                 maximum_position_encoding, rate=0.1):
-        super(Encoder, self).__init__()
+                 maximum_position_encoding, rate=0.1, name=None, train_embedding=True):
+        super(Encoder, self).__init__(name=name)
 
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
+        self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model, name="embedding",
+                                                   trainable=train_embedding)
         self.pos_encoding = positional_encoding(maximum_position_encoding,
                                                 self.d_model)
 
@@ -213,13 +214,14 @@ def positional_encoding(position, d_model):
 
 class Decoder(tf.keras.layers.Layer):
     def __init__(self, num_layers, d_model, num_heads, dff, target_vocab_size,
-                 maximum_position_encoding, rate=0.1):
-        super(Decoder, self).__init__()
+                 maximum_position_encoding, rate=0.1, name=None, train_embedding=True):
+        super(Decoder, self).__init__(name=name)
 
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model)
+        self.embedding = tf.keras.layers.Embedding(target_vocab_size, d_model, name="embedding",
+                                                   trainable=train_embedding)
         self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
 
         self.dec_layers = [DecoderLayer(d_model, num_heads, dff, rate)
@@ -250,16 +252,19 @@ class Decoder(tf.keras.layers.Layer):
 
 class Transformer(tf.keras.Model):
     def __init__(self, num_layers, d_model, num_heads, dff, input_vocab_size,
-                 target_vocab_size, pe_input, pe_target, rate=0.1):
+                 target_vocab_size, pe_input, pe_target, rate=0.1,
+                 train_encoder_embedding=True, train_decoder_embedding=True):
         super(Transformer, self).__init__()
 
         self.encoder = Encoder(num_layers, d_model, num_heads, dff,
-                               input_vocab_size, pe_input, rate)
+                               input_vocab_size, pe_input, rate, name="encoder",
+                               train_embedding=train_encoder_embedding)
 
         self.decoder = Decoder(num_layers, d_model, num_heads, dff,
-                               target_vocab_size, pe_target, rate)
+                               target_vocab_size, pe_target, rate, name="decoder",
+                               train_embedding=train_decoder_embedding)
 
-        self.final_layer = tf.keras.layers.Dense(target_vocab_size)
+        self.final_layer = tf.keras.layers.Dense(target_vocab_size, name="final_layer")
 
     def call(self, inp, tar, training, enc_padding_mask,
              look_ahead_mask, dec_padding_mask):

@@ -6,17 +6,19 @@ import argparse
 import json
 import os
 import time
-from typing import Union, List
+from typing import List, Union
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
 
-from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
-from src.utils.transformer_utils import CustomSchedule, create_masks, load_transformer
-from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
 from src.config import ConfigTrainTransformer
+from src.utils.data_utils import (build_tokenizer, create_transformer_dataset,
+                                  project_root)
+from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
+from src.utils.transformer_utils import (CustomSchedule, create_masks,
+                                         load_transformer)
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -66,12 +68,15 @@ def train_transformer(
     source_synth_training = os.path.join(data_path, config["source_synth_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
+    source_lang_model_path = config["source_lang_model"]
     source_input_files = [source_unaligned, source_training]
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
     target_synth_training = os.path.join(data_path, config["target_synth_training"])
     target_validation = os.path.join(data_path, config["target_validation"])
+    target_lang_model_path = config["target_lang_model"]
+
     target_target_vocab_size = config["target_target_vocab_size"]
 
     target_input_files = [target_unaligned, target_training]
@@ -90,7 +95,14 @@ def train_transformer(
     tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
     tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
 
-    transformer = load_transformer(config, tokenizer_source, tokenizer_target)
+    train_encoder_embedding = config["train_encoder_embedding"]
+    train_decoder_embedding = config["train_decoder_embedding"]
+
+    transformer = load_transformer(config, tokenizer_source, tokenizer_target,
+                                   source_lang_model_path,
+                                   target_lang_model_path,
+                                   train_encoder_embedding,
+                                   train_decoder_embedding)
 
     with open(source_training, "r", encoding="utf-8") as f_train_source:
         buffer_size = sum([1 for _ in f_train_source.readlines()])
@@ -145,7 +157,6 @@ def train_transformer(
     def loss_function(real, pred):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         loss_ = loss_object(real, pred)
-
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
 

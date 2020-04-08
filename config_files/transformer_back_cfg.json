@@ -20,6 +20,10 @@
   "target_target_vocab_size": 8192,
   "checkpoint_path": "checkpoints/transformer/back/train",
   "checkpoint_path_best": "checkpoints/transformer/back/best",
-  "tokenizer_source_path": "tokenizer/tokenizer_fr_back.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_en_back.save"
+  "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
+  "tokenizer_target_path": "tokenizer/tokenizer_en.save",
+  "source_lang_model": null,
+  "target_lang_model": null,
+  "train_encoder_embedding": true,
+  "train_decoder_embedding": true
 }

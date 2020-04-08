@@ -2,7 +2,7 @@
   "debug": false,
   "num_examples": null,
   "num_layers": 2,
-  "d_model": 8,
+  "d_model": 256,
   "dff": 16,
   "num_heads": 2,
   "dropout_rate": 0.1,
