@@ -17,6 +17,7 @@ class ConfigEvalTransformer(TypedDict):
 
 class ConfigTrainTransformer(TypedDict):
     num_examples: int
+    num_synth_examples: int
     num_layers: int
     d_model: int
     dff: int
@@ -26,10 +27,12 @@ class ConfigTrainTransformer(TypedDict):
     epochs: int
     source_unaligned: str
     source_training: str
+    source_synth_training: str
     source_validation: str
     source_target_vocab_size: int
     target_unaligned: str
     target_training: str
+    target_synth_training: str
     target_validation: str
     target_target_vocab_size: int
     checkpoint_path: str

@@ -59,15 +59,18 @@ def train_transformer(
         config: ConfigTrainTransformer = json.load(f_in)
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
+    num_synth_examples = config["num_synth_examples"]
 
     source_unaligned = os.path.join(data_path, config["source_unaligned"])
     source_training = os.path.join(data_path, config["source_training"])
+    source_synth_training = os.path.join(data_path, config["source_synth_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_input_files = [source_unaligned, source_training]
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
+    target_synth_training = os.path.join(data_path, config["target_synth_training"])
     target_validation = os.path.join(data_path, config["target_validation"])
     target_target_vocab_size = config["target_target_vocab_size"]
 
@@ -110,8 +113,11 @@ def train_transformer(
 
         return result_source, result_target
 
-    train_examples = create_transformer_dataset(source_training, target_training, num_examples)
-    validation_examples = create_transformer_dataset(source_validation, target_validation, None)
+    train_examples = create_transformer_dataset(
+        source_training, target_training, source_synth_training, target_synth_training,
+        num_examples, num_synth_examples
+    )
+    validation_examples = create_transformer_dataset(source_validation, target_validation)
 
     train_preprocessed = (
         # cache the dataset to memory to get a speedup while reading from it.
@@ -206,7 +212,12 @@ def train_transformer(
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    train_summary_writer, val_summary_writer = get_summary_tf(save_path, hparams_transformer(config))
+    n_train_examples = tf.data.experimental.cardinality(train_examples).numpy()
+    tf.print(f"Total of {n_train_examples} training examples")
+    train_summary_writer, val_summary_writer = get_summary_tf(
+        save_path, hparams_transformer(config, n_train_examples)
+    )
+
     best_val_accuracy = -1
     for epoch in range(epochs):
         start = time.time()

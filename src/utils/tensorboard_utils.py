@@ -19,7 +19,7 @@ def get_summary_tf(save_path: str, hparams: Dict):
     return train_summary_writer, val_summary_writer
 
 
-def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
+def hparams_transformer(config: ConfigTrainTransformer, n_train_examples: int) -> Dict:
     hparams = {
         "num_layers": config["num_layers"],
         "d_model": config["d_model"],
@@ -31,5 +31,6 @@ def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
         "target_unaligned": config["target_unaligned"],
         "source_target_vocab_size": config["source_target_vocab_size"],
         "target_target_vocab_size": config["target_target_vocab_size"],
+        "n_train_examples": n_train_examples
     }
     return hparams

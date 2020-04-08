@@ -66,10 +66,19 @@ def create_dataset(source: str, target: Optional[str], max_seq_length: Optional[
     return source_data, target_data
 
 
-def create_transformer_dataset(source: str, target: Optional[str],
-                               num_examples: Optional[int]) -> tf.data.Dataset:
+def create_transformer_dataset(
+        source: str,
+        target: Optional[str],
+        synthetic_source: Optional[str] = None,
+        synthetic_target: Optional[str] = None,
+        num_examples: Optional[int] = None,
+        num_synth_examples: Optional[int] = None
+) -> tf.data.Dataset:
     """
     Takes a source and target file and return a dataset
+    :param synthetic_source: path to synthetic source file
+    :param synthetic_target: path to synthetic target file
+    :param num_synth_examples:  number of synthetic examples to add
     :param source: path to source file
     :param target: path to target file
     :param num_examples: max number of examples, take all if None
@@ -81,6 +90,7 @@ def create_transformer_dataset(source: str, target: Optional[str],
         with open(target, encoding="UTF-8") as target_file:
             target_lines = target_file.readlines()
         assert len(source_lines) == len(target_lines)
+
     source_data = []
     target_data = []
     for source_line in source_lines[:num_examples]:
@@ -90,6 +100,27 @@ def create_transformer_dataset(source: str, target: Optional[str],
             target_data.append(target_line.strip())
     else:
         target_data = [""] * len(source_lines)
+
+    if synthetic_source is not None and synthetic_target is not None:
+        assert target is not None
+        with open(synthetic_source, encoding="UTF-8") as f_in:
+            synt_source_lines = f_in.readlines()
+        with open(synthetic_target, encoding="UTF-8") as f_in:
+            synt_target_lines = f_in.readlines()
+        assert len(synt_source_lines) == len(synt_target_lines)
+        if num_synth_examples is not None:
+            tf.print(f"Augmenting dataset with {num_synth_examples} synthetic sentences")
+            synt_source_lines = synt_source_lines[:num_synth_examples]
+            synt_target_lines = synt_target_lines[:num_synth_examples]
+        else:
+            tf.print(f"Augmenting dataset with all synthetic sentences = {len(synt_source_lines)}")
+
+        # No need to shuffle since everything will be shuffled with tf.Dataset
+        synt_source_lines = [line.strip() for line in synt_source_lines]
+        synt_target_lines = [line.strip() for line in synt_target_lines]
+        source_data += synt_source_lines
+        target_data += synt_target_lines
+
     dataset = tf.data.Dataset.from_tensor_slices((source_data, target_data))
     return dataset
 
