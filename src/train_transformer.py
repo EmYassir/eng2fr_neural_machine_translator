@@ -19,6 +19,7 @@ from src.utils.data_utils import (build_tokenizer, create_transformer_dataset,
 from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
 from src.utils.transformer_utils import (CustomSchedule, create_masks,
                                          load_transformer)
+from src.evaluator import generate_predictions, compute_bleu
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -49,7 +50,8 @@ def train_transformer(
         config_path: str,
         data_path: str,
         save_path: str,
-        restore_checkpoint: bool
+        restore_checkpoint: bool,
+        print_all_scores: bool = False
 ) -> None:
     """
     Train the Transformer model
@@ -269,6 +271,12 @@ def train_transformer(
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+
+    # Compute bleu score on best performing model
+    temp_file = os.path.join(project_root(), "temp_preds.txt")
+    generate_predictions(source_validation, temp_file, save_path, config_path)
+    compute_bleu(temp_file, target_validation, print_all_scores)
+    os.remove(temp_file)
 
 
 def main():
