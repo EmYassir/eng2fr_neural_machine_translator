@@ -223,7 +223,7 @@ def train_transformer(
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    n_train_examples = tf.data.experimental.cardinality(train_examples).numpy()
+    n_train_examples = int(tf.data.experimental.cardinality(train_examples).numpy())
     tf.print(f"Total of {n_train_examples} training examples")
     train_summary_writer, val_summary_writer = get_summary_tf(
         save_path, hparams_transformer(config, n_train_examples)

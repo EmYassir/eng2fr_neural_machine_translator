@@ -1,6 +1,6 @@
 {
   "num_examples": null,
-  "num_synth_examples": null,
+  "num_synth_examples": 1,
   "num_layers": 2,
   "d_model": 256,
   "dff": 16,
