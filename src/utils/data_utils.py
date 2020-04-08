@@ -101,19 +101,17 @@ def create_transformer_dataset(
     else:
         target_data = [""] * len(source_lines)
 
-    if synthetic_source is not None and synthetic_target is not None:
+    if synthetic_source is not None and synthetic_target is not None and num_synth_examples is not None:
         assert target is not None
         with open(synthetic_source, encoding="UTF-8") as f_in:
             synt_source_lines = f_in.readlines()
         with open(synthetic_target, encoding="UTF-8") as f_in:
             synt_target_lines = f_in.readlines()
         assert len(synt_source_lines) == len(synt_target_lines)
-        if num_synth_examples is not None:
-            tf.print(f"Augmenting dataset with {num_synth_examples} synthetic sentences")
-            synt_source_lines = synt_source_lines[:num_synth_examples]
-            synt_target_lines = synt_target_lines[:num_synth_examples]
-        else:
-            tf.print(f"Augmenting dataset with all synthetic sentences = {len(synt_source_lines)}")
+
+        tf.print(f"Augmenting dataset with {num_synth_examples} synthetic sentences")
+        synt_source_lines = synt_source_lines[:num_synth_examples]
+        synt_target_lines = synt_target_lines[:num_synth_examples]
 
         # No need to shuffle since everything will be shuffled with tf.Dataset
         synt_source_lines = [line.strip() for line in synt_source_lines]
