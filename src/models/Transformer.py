@@ -1,5 +1,35 @@
 import numpy as np
 import tensorflow as tf
+import itertools
+
+
+class Beam(object):
+    # from https://github.com/xwgeng/RNNSearch/blob/master/beam.py
+    def __init__(self, beam_size):
+        self.beam_size = beam_size
+
+        self.candidates = []
+        self.scores = []
+
+    def step(self, prob, prev_beam, f_done):
+        pre_score = prob.new_tensor(prev_beam.scores)
+        score = prob + pre_score.unsqueeze(-1).expand_as(prob)
+        nbest_score, nbest_ix = score.view(-1).topk(self.beam_size, largest=False)
+        beam_ix = nbest_ix / prob.size(1)
+        token_ix = nbest_ix - beam_ix * prob.size(1)
+
+        done_list, remain_list = [], []
+        prev_candidates = prev_beam.candidates
+        for b_score, b_ix, t_ix in itertools.izip(nbest_score.tolist(), beam_ix.tolist(), token_ix.tolist()):
+            candidate = prev_candidates[b_ix] + [t_ix]
+
+            if f_done(candidate):
+                done_list.append([candidate, b_score])
+            else:
+                remain_list.append(b_ix)
+                self.candidates.append(candidate)
+                self.scores.append(b_score)
+        return done_list, remain_list
 
 
 def scaled_dot_product_attention(q, k, v, mask):
@@ -266,6 +296,9 @@ class Transformer(tf.keras.Model):
 
         self.final_layer = tf.keras.layers.Dense(target_vocab_size, name="final_layer")
 
+        self.input_vocab_size = input_vocab_size
+        self.target_vocab_size = target_vocab_size
+
     def call(self, inp, tar, training, enc_padding_mask,
              look_ahead_mask, dec_padding_mask):
         enc_output = self.encoder(inp, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_model)
@@ -277,3 +310,68 @@ class Transformer(tf.keras.Model):
         final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
 
         return final_output, attention_weights
+
+    def beamsearch(self, inp, tar, training, enc_padding_mask, look_ahead_mask, dec_padding_mask,
+                   beam_size=10, normalize=False, max_len=None, min_len=None):
+
+        # TODO fix this to accomodate batches of different lens
+        max_len = inp.shape[1] * 3 if max_len is None else max_len
+        min_len = inp.shape[1] / 2 if min_len is None else min_len
+
+        enc_output = self.encoder(inp, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_model)
+        """
+        enc_context = enc_context.contiguous()
+
+        avg_enc_context = enc_context.sum(1)
+        enc_context_len = src_mask.sum(1).unsqueeze(-1).expand_as(avg_enc_context)
+        avg_enc_context = avg_enc_context / enc_context_len
+
+        attn_mask = src_mask.byte()
+
+        hidden = F.tanh(self.init_affine(avg_enc_context))
+        """
+        decoder_end_token = self.target_vocab_size - 1
+        prev_beam = Beam(beam_size)
+        prev_beam.candidates = tar
+        prev_beam.scores = [0]
+        f_done = (lambda x: x[-1] == decoder_end_token)
+
+        valid_size = beam_size
+
+        hyp_list = []
+        for k in range(max_len):
+            candidates = prev_beam.candidates
+            dec_output, _ = self.decoder(
+                candidates, enc_output, training, look_ahead_mask, dec_padding_mask)
+            log_prob = tf.nn.log_softmax(dec_output, dim=1)
+            if k < min_len:
+                log_prob[:, decoder_end_token] = -float('inf')
+            if k == max_len - 1:
+                eos_prob = log_prob[:, decoder_end_token].clone()
+                log_prob[:, :] = -float('inf')
+                log_prob[:, decoder_end_token] = eos_prob
+            next_beam = Beam(valid_size)
+            done_list, remain_list = next_beam.step(-log_prob, prev_beam, f_done)
+            hyp_list.extend(done_list)
+            valid_size -= len(done_list)
+
+            if valid_size == 0:
+                break
+
+            beam_remain_ix = src.new_tensor(remain_list)
+            enc_context = enc_context.index_select(0, beam_remain_ix)
+            attn_mask = attn_mask.index_select(0, beam_remain_ix)
+            hidden = hidden.index_select(0, beam_remain_ix)
+            prev_beam = next_beam
+        score_list = [hyp[1] for hyp in hyp_list]
+        hyp_list = [hyp[0][1: hyp[0].index(self.dec_eos)] if self.dec_eos in hyp[0] else hyp[0][1:] for hyp in hyp_list]
+        if normalize:
+            for k, (hyp, score) in enumerate(zip(hyp_list, score_list)):
+                if len(hyp) > 0:
+                    score_list[k] = score_list[k] / len(hyp)
+        score = hidden.new_tensor(score_list)
+        sort_score, sort_ix = torch.sort(score)
+        output = []
+        for ix in sort_ix.tolist():
+            output.append((hyp_list[ix], score[ix].item()))
+        return output

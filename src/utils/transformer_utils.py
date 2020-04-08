@@ -188,7 +188,8 @@ def evaluate_old(inp_sentence: str, tokenizer_source: tfds.features.text.Subword
 
 def evaluate(encoder_input: tf.Tensor,
              tokenizer_target: tfds.features.text.SubwordTextEncoder,
-             transformer: Transformer) -> tf.Tensor:
+             transformer: Transformer,
+             beam_size) -> tf.Tensor:
     """
     Takes encoded input sentence ands generate the sequence of tokens for its translation
     :param encoder_input: Encoded input sentences
@@ -205,9 +206,13 @@ def evaluate(encoder_input: tf.Tensor,
     max_additional_tokens = int(0.5 * encoder_input.shape[1])
     max_length_pred = encoder_input.shape[1] + max_additional_tokens
 
+    if beam_size is not None:
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
+        predictions, _ = transformer.beamsearch(encoder_input,output, False,
+                                                enc_padding_mask, combined_mask, dec_padding_mask, beam_size)
+
     for _ in range(max_length_pred):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
-
         # predictions.shape == (batch_size, seq_len, vocab_size)
         predictions, _ = transformer(encoder_input,
                                      output,
@@ -498,7 +503,8 @@ def translate_file(transformer: Transformer,
                    input_file: str,
                    batch_size: int = 32,
                    print_all_translations: bool = True,
-                   max_lines_process: Optional[int] = None) -> Tuple:
+                   max_lines_process: Optional[int] = None,
+                   beam_size=5) -> Tuple:
     """
     Translates the sentences in input file to target language
     :param transformer: Trained Transformer model
@@ -537,7 +543,7 @@ def translate_file(transformer: Transformer,
 
     translations = []
     for i, input_seq in enumerate(input_fn()):
-        predictions = evaluate(input_seq, tokenizer_target, transformer)
+        predictions = evaluate(input_seq, tokenizer_target, transformer, beam_size)
         for prediction in predictions:
             translation = _trim_and_decode(prediction, tokenizer_target)
             translations.append(translation)
