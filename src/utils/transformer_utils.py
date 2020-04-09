@@ -404,3 +404,81 @@ def translate_file(transformer: Transformer,
             print(f"\tOutput: {translations[i*batch_size]}\n")
             print("=" * 100)
     return translations, sorted_keys
+
+
+
+def translate_batch(transformer: Transformer,
+                   tokenizer_source: tfds.features.text.SubwordTextEncoder,
+                   tokenizer_target: tfds.features.text.SubwordTextEncoder,
+                   input_batch: list[list[str]],
+                   batch_size: int = 32,
+                   print_all_translations: bool = True) -> list[list[str]]:
+    """
+    Translates the sentences in input batch to target language
+    :param transformer: Trained Transformer model
+    :param tokenizer_source: Source language tokenizer
+    :param tokenizer_target: Target language tokenizer
+    :param input_file: Path to input file
+    :param batch_size: Batch size
+    :param print_all_translations: Will print first translated sentence of every batch if True
+    :return: The translated sentences in a python list (sorted by input sentence length),
+            The dict to re-order the sentences in the original order
+    """
+    def _get_sorted_inputs_from_batch(batch: list[list[str]]) -> Tuple:
+        """
+        Sort sentences in the batch by input lenght
+        :batch: batch of sentences
+        :param max_line_process: Number of line (first N lines) to keep
+        :return: The sentences sorted by length and the dict to re-order them later
+        """
+        input_lens = [(i, len(line.split())) for i, line in enumerate(batch)]
+        sorted_input_lens = sorted(input_lens, key=lambda x: x[1], reverse=True)
+        sorted_inputs = []
+        sorted_keys = {}
+        for i, (index, _) in enumerate(sorted_input_lens):
+            sorted_inputs.append(batch[index])
+            sorted_keys[index] = i
+        return sorted_inputs, sorted_keys
+    
+    # Read and sort inputs by length. Keep dictionary (original index-->new index
+    # in sorted list) to write translations in the original order.
+    sorted_inputs, sorted_keys = _get_sorted_inputs_from_batch(input_batch)
+    num_decode_batches = (len(sorted_inputs) - 1) // batch_size + 1
+
+    def input_generator() -> Generator[List[int], None, None]:
+        """
+        Generator that yield encoded sentence from sorted inputs
+        """
+        for j, line in enumerate(sorted_inputs):
+            if j % batch_size == 0:
+                batch_num = (j // batch_size) + 1
+                print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
+            yield _encode_and_add_tokens(line, tokenizer_source)
+
+    def input_fn() -> tf.data.Dataset:
+        """
+        Create batched dataset of encoded inputs
+        :return: batched dataset
+        """
+        dataset = tf.data.Dataset.from_generator(input_generator, tf.int64, tf.TensorShape([None]))
+        dataset = dataset.padded_batch(batch_size, [None])
+        return dataset
+
+    intermediate_translations = []
+    for i, input_seq in enumerate(input_fn()):
+        predictions = evaluate(input_seq, tokenizer_target, transformer)
+        for prediction in predictions:
+            translation = _trim_and_decode(prediction, tokenizer_target)
+            intermediate_translations.append(translation)
+
+        if print_all_translations:
+            print("Translating:")
+            print(f"\tInput: {sorted_inputs[i*batch_size]}")
+            print(f"\tOutput: {intermediate_translations[i*batch_size]}\n")
+            print("=" * 100)
+    
+    # Reconstructing translations in the same original order
+    final_translations = []
+    for index in range(len(sorted_keys)):
+        final_translations.append(intermediate_translations[sorted_keys[index]])
+    return final_translations
