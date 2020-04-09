@@ -67,7 +67,9 @@ def train_transformer(
 
     source_unaligned = os.path.join(data_path, config["source_unaligned"])
     source_training = os.path.join(data_path, config["source_training"])
-    source_synth_training = os.path.join(data_path, config["source_synth_training"])
+    source_synth_training = config["source_synth_training"]
+    if (source_synth_training is not None):
+        source_synth_training = os.path.join(data_path, source_synth_training)
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_lang_model_path = config["source_lang_model"]
@@ -75,7 +77,9 @@ def train_transformer(
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
-    target_synth_training = os.path.join(data_path, config["target_synth_training"])
+    target_synth_training = config["target_synth_training"]
+    if (target_synth_training is not None):
+        target_synth_training = os.path.join(data_path, target_synth_training)
     target_validation = os.path.join(data_path, config["target_validation"])
     target_lang_model_path = config["target_lang_model"]
 

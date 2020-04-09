@@ -16,6 +16,7 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
+from tqdm import tqdm 
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -55,6 +56,7 @@ def main() -> None:
     """
     Train the Auto-encoder model
     """
+    tf.print('################# Main')
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg_path", type=str,
                         help="path to the JSON config file used to define train parameters")
@@ -99,7 +101,7 @@ def main() -> None:
     # Set hyperparameters
     batch_size = config["batch_size"]
     epochs = config["epochs"]
-    lambda_factor = config["lambda"]
+    lambda_factor = config["lambda_factor"]
 
     # Open other config paths
     with open(config["encoder_cfg_path"], "r") as config_file:
@@ -138,7 +140,7 @@ def main() -> None:
 
         return result_source, result_target
 
-    train_examples = create_transformer_dataset(source_training, target_training, num_examples)
+    train_examples = create_transformer_dataset(source_training, target_training, num_examples=num_examples)
     validation_examples = create_transformer_dataset(source_validation, target_validation, None)
 
     train_preprocessed = (
@@ -221,6 +223,7 @@ def main() -> None:
         with tf.GradientTape() as tape:
             predictions = autoencoder(inp, tar_inp)
             loss = lambda_factor * loss_function(tar_real, predictions)
+            tf.print(f'Gradien tape == {tape}')
         tf.print(f'#(autoencoder.trainable_variables) = {len(autoencoder.trainable_variables)}')
         tf.print(f'#(autoencoder.encoder.trainable_variables) = {len(autoencoder.encoder.trainable_variables)}')
         tf.print(f'#(autoencoder.decoder.trainable_variables) = {len(autoencoder.decoder.trainable_variables)}')
@@ -241,6 +244,8 @@ def main() -> None:
 
     train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0
+    
+    pbar = tqdm(total=epochs) 
     for epoch in range(epochs):
         start = time.time()
 
@@ -284,6 +289,7 @@ def main() -> None:
 
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+        pbar.update(1)
 
 
 if __name__ == "__main__":

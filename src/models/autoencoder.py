@@ -17,7 +17,7 @@ class AutoEncoder(tf.keras.Model):
         self.encoder = load_transformer(config_enc, tokenizer_source, tokenizer_target)
         self.decoder = load_transformer(config_dec, tokenizer_target, tokenizer_source)
 
-    def call(self, inp, tar, training):
+    def call(self, inp, tar):
         # tokenizers
         tokenizer_source = self.tokenizer_src
         tokenizer_target = self.tokenizer_tgt
@@ -40,8 +40,10 @@ class AutoEncoder(tf.keras.Model):
             return result_source, result_target
 
         # Getting translations
-        translations = translate_batch(self.encoder, tokenizer_source, tokenizer_target, inp, self.batch_size, True)
-
+        tf.print("type of %d", inp.dtype)
+        translations = translate_batch(self.encoder, tokenizer_source, tokenizer_target, inp.numpy(), self.batch_size, True)
+        tf.print(f'translations size == {len(translations)}')
+        tf.print(translations)
         # Converting translations to tf dataset to feed them to decoder
         dataset = tf.data.Dataset.from_tensor_slices((translations, tar))
         data_preprocessed = (

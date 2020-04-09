@@ -407,9 +407,9 @@ def translate_file(transformer: Transformer,
 def translate_batch(transformer: Transformer,
                     tokenizer_source: tfds.features.text.SubwordTextEncoder,
                     tokenizer_target: tfds.features.text.SubwordTextEncoder,
-                    input_batch: list[list[str]],
+                    input_batch: List[List[str]],
                     batch_size: int = 32,
-                    print_all_translations: bool = True) -> list[list[str]]:
+                    print_all_translations: bool = True) -> List[List[str]]:
     """
     Translates the sentences in input batch to target language
     :param transformer: Trained Transformer model
@@ -421,13 +421,14 @@ def translate_batch(transformer: Transformer,
     :return: The translated sentences in a python list (sorted by input sentence length),
             The dict to re-order the sentences in the original order
     """
-    def _get_sorted_inputs_from_batch(batch: list[list[str]]) -> Tuple:
+    def _get_sorted_inputs_from_batch(batch: List[List[str]]) -> Tuple:
         """
         Sort sentences in the batch by input lenght
         :batch: batch of sentences
         :param max_line_process: Number of line (first N lines) to keep
         :return: The sentences sorted by length and the dict to re-order them later
         """
+        tf.print(batch.dtype)
         input_lens = [(i, len(line.split())) for i, line in enumerate(batch)]
         sorted_input_lens = sorted(input_lens, key=lambda x: x[1], reverse=True)
         sorted_inputs = []
