@@ -41,7 +41,8 @@ class AutoEncoder(tf.keras.Model):
 
         # Getting translations
         tf.print("type of %d", inp.dtype)
-        translations = translate_batch(self.encoder, tokenizer_source, tokenizer_target, inp.numpy(), self.batch_size, True)
+        translations = translate_batch(self.encoder, tokenizer_source, tokenizer_target,
+                                       inp.numpy(), self.batch_size, True)
         tf.print(f'translations size == {len(translations)}')
         tf.print(translations)
         # Converting translations to tf dataset to feed them to decoder

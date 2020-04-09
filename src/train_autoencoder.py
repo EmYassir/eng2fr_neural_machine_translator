@@ -16,7 +16,7 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
-from tqdm import tqdm 
+from tqdm import tqdm
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -244,8 +244,8 @@ def main() -> None:
 
     train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0
-    
-    pbar = tqdm(total=epochs) 
+
+    pbar = tqdm(total=epochs)
     for epoch in range(epochs):
         start = time.time()
 
