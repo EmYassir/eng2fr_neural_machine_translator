@@ -7,9 +7,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-from src.config import ConfigEvalTransformer, ConfigTrainTransformer, ConfigTrainAutoEncoder
+from src.config import ConfigEvalTransformer, ConfigTrainTransformer
 from src.models.Transformer import Transformer
-from src.models.Autoencoder import AutoEncoder
 from src.utils.embeddings_utils import get_pretrained_weights
 
 
@@ -86,9 +85,8 @@ def load_transformer(
         pretrained_weigths = get_pretrained_weights(embedding_weigths, tokenizer_target, target_lang_model_path)
         decoder.embedding.set_weights([pretrained_weigths])
 
-    return transformer    
-    
-    
+    return transformer
+
 
 def create_padding_mask(seq):
     """
@@ -406,13 +404,12 @@ def translate_file(transformer: Transformer,
     return translations, sorted_keys
 
 
-
 def translate_batch(transformer: Transformer,
-                   tokenizer_source: tfds.features.text.SubwordTextEncoder,
-                   tokenizer_target: tfds.features.text.SubwordTextEncoder,
-                   input_batch: list[list[str]],
-                   batch_size: int = 32,
-                   print_all_translations: bool = True) -> list[list[str]]:
+                    tokenizer_source: tfds.features.text.SubwordTextEncoder,
+                    tokenizer_target: tfds.features.text.SubwordTextEncoder,
+                    input_batch: list[list[str]],
+                    batch_size: int = 32,
+                    print_all_translations: bool = True) -> list[list[str]]:
     """
     Translates the sentences in input batch to target language
     :param transformer: Trained Transformer model
@@ -439,7 +436,7 @@ def translate_batch(transformer: Transformer,
             sorted_inputs.append(batch[index])
             sorted_keys[index] = i
         return sorted_inputs, sorted_keys
-    
+
     # Read and sort inputs by length. Keep dictionary (original index-->new index
     # in sorted list) to write translations in the original order.
     sorted_inputs, sorted_keys = _get_sorted_inputs_from_batch(input_batch)
@@ -476,7 +473,7 @@ def translate_batch(transformer: Transformer,
             print(f"\tInput: {sorted_inputs[i*batch_size]}")
             print(f"\tOutput: {intermediate_translations[i*batch_size]}\n")
             print("=" * 100)
-    
+
     # Reconstructing translations in the same original order
     final_translations = []
     for index in range(len(sorted_keys)):

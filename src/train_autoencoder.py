@@ -11,17 +11,17 @@ from typing import Union, List
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 from tensorflow.python.framework.errors_impl import NotFoundError
-
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
-#tf_config = ConfigProto()
-#tf_config.gpu_options.allow_growth = True
-#session = InteractiveSession(config=tf_config)
+tf_config = ConfigProto()
+tf_config.gpu_options.allow_growth = True
+session = InteractiveSession(config=tf_config)
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
@@ -50,7 +50,7 @@ def get_summary_tf(save_path: str):
     val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
     return train_summary_writer, val_summary_writer
 
-    
+
 def main() -> None:
     """
     Train the Auto-encoder model
@@ -100,12 +100,12 @@ def main() -> None:
     batch_size = config["batch_size"]
     epochs = config["epochs"]
     lambda_factor = config["lambda"]
-    
+
     # Open other config paths
     with open(config["encoder_cfg_path"], "r") as config_file:
         config_enc = json.load(config_file)
     with open(config["decoder_cfg_path"], "r") as config_file:
-        config_dec = json.load(config_file) 
+        config_dec = json.load(config_file)
 
     checkpoint_path_enc = os.path.join(save_path, config_enc["checkpoint_path"])
     checkpoint_path_best_enc = os.path.join(save_path, config_enc["checkpoint_path_best"])
@@ -114,7 +114,7 @@ def main() -> None:
 
     tokenizer_source = load_tokenizer("source", tokenizer_source_path, source_input_files, source_target_vocab_size)
     tokenizer_target = load_tokenizer("target", tokenizer_target_path, target_input_files, target_target_vocab_size)
-    
+
     autoencoder = AutoEncoder(config, config_enc, config_dec, tokenizer_source, tokenizer_target)
 
     with open(source_training, "r", encoding="utf-8") as train_source:
@@ -179,26 +179,29 @@ def main() -> None:
     val_loss = tf.keras.metrics.Mean(name='val_loss')
     val_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='val_accuracy')
-    
-    
+
     def get_ckpt_managers(path, path_best, model):
-       ckpt = tf.train.Checkpoint(transformer = model)
-       ckpt_manager = tf.train.CheckpointManager(ckpt, path, max_to_keep=10)
-       ckpt_manager_best = tf.train.CheckpointManager(ckpt, path_best, max_to_keep=1) 
-       return ckpt, ckpt_manager, ckpt_manager_best
-    
+        ckpt = tf.train.Checkpoint(transformer=model)
+        ckpt_manager = tf.train.CheckpointManager(ckpt, path, max_to_keep=10)
+        ckpt_manager_best = tf.train.CheckpointManager(ckpt, path_best, max_to_keep=1)
+        return ckpt, ckpt_manager, ckpt_manager_best
+
     def restore_ckpts(ckpt, ckpt_manager, path):
-       if ckpt_manager.latest_checkpoint:
-           # if a checkpoint exists, restore the latest checkpoint.
-           ckpt.restore(ckpt_manager.latest_checkpoint)
-           tf.print(f'Latest checkpoint for encoder restored from {path}')
-   
+        if ckpt_manager.latest_checkpoint:
+            # if a checkpoint exists, restore the latest checkpoint.
+            ckpt.restore(ckpt_manager.latest_checkpoint)
+            tf.print(f'Latest checkpoint for encoder restored from {path}')
+
     # Checkpoint managers for both encoder and decoder (within the autoencoder)
     # 1. Encoder
-    ckpt_enc, ckpt_manager_enc, ckpt_manager_best_enc =  get_ckpt_managers(checkpoint_path_enc, checkpoint_path_best_enc, model=autoencoder.encoder) 
+    ckpt_enc, ckpt_manager_enc, ckpt_manager_best_enc = get_ckpt_managers(checkpoint_path_enc,
+                                                                          checkpoint_path_best_enc,
+                                                                          model=autoencoder.encoder)
     # 2. Decoder
-    ckpt_dec, ckpt_manager_dec, ckpt_manager_best_dec =  get_ckpt_managers(checkpoint_path_dec, checkpoint_path_best_dec, model=autoencoder.decoder) 
-    
+    ckpt_dec, ckpt_manager_dec, ckpt_manager_best_dec = get_ckpt_managers(checkpoint_path_dec,
+                                                                          checkpoint_path_best_dec,
+                                                                          model=autoencoder.decoder)
+
     # Restore checkpoints for both encoder and decoder (within the autoencoder)
     if restore_checkpoint:
         # 1. Encoder
@@ -264,7 +267,7 @@ def main() -> None:
             tf.print(f"Saved best encoder checkpoint for epoch {epoch + 1} at {checkpoint_path_best_enc}")
             checkpoint_path_best_dec = ckpt_manager_best_dec.save()
             tf.print(f"Saved best decoder checkpoint for epoch {epoch + 1} at {checkpoint_path_best_dec}")
-            
+
         if (epoch + 1) % 5 == 0:
             checkpoint_path_enc = ckpt_manager_enc.save()
             tf.print(f"Saved encoder checkpoint for epoch {epoch + 1} at {checkpoint_path_enc}")
