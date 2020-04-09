@@ -22,7 +22,8 @@ class MyTestCase(unittest.TestCase):
             config_path=self.config_train_path,
             data_path=project_root(),
             save_path=project_root(),
-            restore_checkpoint=False
+            restore_checkpoint=False,
+            print_all_scores=True
         )
 
         # Checkpoint of trained model should be saved by now

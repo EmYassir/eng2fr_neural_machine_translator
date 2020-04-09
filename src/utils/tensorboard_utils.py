@@ -19,9 +19,9 @@ def get_summary_tf(save_path: str, hparams: Dict):
     return train_summary_writer, val_summary_writer
 
 
-def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
+def hparams_transformer(config: ConfigTrainTransformer, n_train_examples: int) -> Dict:
     source_lang_model = config["source_lang_model"]
-    target_lang_mdoel = config["target_lang_model"]
+    target_lang_model = config["target_lang_model"]
     hparams = {
         "num_layers": config["num_layers"],
         "d_model": config["d_model"],
@@ -33,9 +33,10 @@ def hparams_transformer(config: ConfigTrainTransformer) -> Dict:
         "target_unaligned": config["target_unaligned"],
         "source_target_vocab_size": config["source_target_vocab_size"],
         "target_target_vocab_size": config["target_target_vocab_size"],
+        "n_train_examples": n_train_examples,
         # Replace None by "None" because NoneType is not a valid hparam type in tensorboard
         "source_lang_model": source_lang_model if source_lang_model is not None else "None",
-        "target_lang_model": target_lang_mdoel if target_lang_mdoel is not None else "None",
+        "target_lang_model": target_lang_model if target_lang_model is not None else "None",
         "train_encoder_embedding": config["train_encoder_embedding"],
         "train_decoder_embedding": config["train_encoder_embedding"]
     }

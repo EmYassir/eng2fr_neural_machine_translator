@@ -53,12 +53,20 @@ def generate_predictions(
     with open(config_path, "r") as config_f:
         config = json.load(config_f)
 
-    debug = config["debug"]  # Write predictions to debug_predictions if True
+    if "debug" not in config:
+        tf.print(f"Warning: debug not in config -> Defaulting to 32")
+        debug = False
+    else:
+        debug = config["debug"]  # Write predictions to debug_predictions if True
 
     tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
     tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
     checkpoint_path_best = os.path.join(saved_path, config["checkpoint_path_best"])
-    translation_batch_size = config["translation_batch_size"]
+    if "translation_batch_size" not in config:
+        tf.print(f"Warning: translation_batch_size not in config -> Defaulting to 32")
+        translation_batch_size = 32
+    else:
+        translation_batch_size = config["translation_batch_size"]
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
     tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
 
