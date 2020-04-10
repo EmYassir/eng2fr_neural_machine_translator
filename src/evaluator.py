@@ -47,7 +47,11 @@ def generate_predictions(
     """
     start = time.time()
     tf.print(f"Using config_file={config_file}")
-    config_path = os.path.join(project_root(), config_file)
+    if os.path.exists(config_file):
+        config_path = config_file
+    else:
+        # if not a path, check project folder
+        config_path = os.path.join(project_root(), config_file)
 
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
 
