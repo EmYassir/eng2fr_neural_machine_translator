@@ -47,7 +47,8 @@ def generate_predictions(
     """
     start = time.time()
     tf.print(f"Using config_file={config_file}")
-    config_path = os.path.join(project_root(), "config_files", config_file)
+    config_path = os.path.join(project_root(), config_file)
+
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
 
     with open(config_path, "r") as config_f:
@@ -126,8 +127,8 @@ def main():
     parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
     parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
     parser.add_argument('--config_file', type=str,
-                        help='name of config file in directory config_files/',
-                        default="transformer_eval_cfg.json")
+                        help='path to config file',
+                        default=os.path.join("config_files", "transformer_eval_cfg.json"))
     parser.add_argument('--saved_path', type=str, help='path to saved models/tokenizers', default=project_root())
     parser.add_argument('--print-all-scores', help='will print one score per sentence',
                         action='store_true')
