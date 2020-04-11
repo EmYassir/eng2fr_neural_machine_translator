@@ -218,11 +218,11 @@ def main() -> None:
 
     @tf.function(input_signature=train_step_signature)
     def train_step(inp, tar):
-        tar_inp = tar[:, :-1]
-        tar_real = tar[:, 1:]
+        inp_real = inp[:, 1:]
         with tf.GradientTape() as tape:
-            predictions = autoencoder(inp, tar_inp)
-            loss = lambda_factor * loss_function(tar_real, predictions)
+            predictions, _ = autoencoder(inp, tar)
+            print('############################# TRAIN STEEEEEEEEEEEEEEEEEEEEP')
+            loss = lambda_factor * loss_function(inp_real, predictions)
             tf.print(f'Gradien tape == {tape}')
         tf.print(f'#(autoencoder.trainable_variables) = {len(autoencoder.trainable_variables)}')
         tf.print(f'#(autoencoder.encoder.trainable_variables) = {len(autoencoder.encoder.trainable_variables)}')
@@ -231,16 +231,15 @@ def main() -> None:
         optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
 
         train_loss(loss)
-        train_accuracy(tar_real, predictions)
+        train_accuracy(inp_real, predictions)
 
     @tf.function(input_signature=train_step_signature)
     def validate(inp, tar):
-        tar_inp = tar[:, :-1]
-        tar_real = tar[:, 1:]
-        predictions = autoencoder(inp, tar_inp)
-        loss = lambda_factor * loss_function(tar_real, predictions)
+        inp_real = inp[:, 1:]
+        predictions = autoencoder(inp, tar)
+        loss = lambda_factor * loss_function(inp_real, predictions)
         val_loss(loss)
-        val_accuracy(tar_real, predictions)
+        val_accuracy(inp_real, predictions)
 
     train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0
