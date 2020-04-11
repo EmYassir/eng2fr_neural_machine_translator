@@ -9,7 +9,7 @@ def main():
     parser = argparse.ArgumentParser('Script to generate synthetic data')
     parser.add_argument('-i', '--input_file_path', type=str, help='path to input file', required=True)
     parser.add_argument('-c', '--config_file', type=str,
-                        help='name of config file in directory config_files/', required=True)
+                        help='path to config file', required=True)
     parser.add_argument('-s', '--saved_path', type=str, help='path to saved models/tokenizers', default=project_root())
     parser.add_argument('-n', '--num_lines', type=int, help='number of lines to translate', default=20000)
     parser.add_argument('-p', '--pred_file_path', type=str,
