@@ -188,43 +188,139 @@ def evaluate_old(inp_sentence: str, tokenizer_source: tfds.features.text.Subword
 
 def evaluate(encoder_input: tf.Tensor,
              tokenizer_target: tfds.features.text.SubwordTextEncoder,
-             transformer: Transformer) -> tf.Tensor:
+             transformer: Transformer,
+             beam_size: Optional[int],
+             alpha: Optional[float]) -> tf.Tensor:
     """
     Takes encoded input sentence ands generate the sequence of tokens for its translation
     :param encoder_input: Encoded input sentences
     :param tokenizer_target: Tokenizer for target language
     :param transformer: Trained Transformer model
+    :param beam_size: Beam size used in beam search
+    :param alpha: alpha parameter for beam search
     :return: Output sentences encoded for target language
     """
+    start_token = tokenizer_target.vocab_size
+    end_token = tokenizer_target.vocab_size + 1
     # The first word to the transformer should be the target start token
-    decoder_input = [tokenizer_target.vocab_size] * encoder_input.shape[0]
+    decoder_input = [start_token] * encoder_input.shape[0]
     output = tf.reshape(decoder_input, (-1, 1))
     # TODO Consider if there is a better heuristic
-    #  The higher max_additional_tokens, the longer it takes to evaluate. On the other side, a lower number risks
-    #  returning incomplete sentences.
-    max_additional_tokens = int(0.5 * encoder_input.shape[1])
+    # The higher max_additional_tokens, the longer it takes to evaluate. On the other side, a lower number risks
+    # returning incomplete sentences.
+    max_additional_tokens = int(encoder_input.shape[1])
     max_length_pred = encoder_input.shape[1] + max_additional_tokens
-
-    for _ in range(max_length_pred):
+    # Set minimum length for predictions. WARNING, this might lead to bad results if there is a big difference
+    # in length for input sentences in a minibatch. This should not be the case in the test set but could be in a
+    # small debug example. Putting this to a smaller number might fix it but will favor shorter translations.
+    min_length_pred = int(0.5 * encoder_input.shape[1])
+    if beam_size is not None:
+        if alpha is None:
+            alpha = 0.6
+        # length penalty is neutralized when alpha = 0.0; Wu et al 2016 suggest alpha = [0.6-0.7]
+        # Initialized to 1 =  no length penalty
+        length_penalty = 1.0
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
 
-        # predictions.shape == (batch_size, seq_len, vocab_size)
+        batch_size = encoder_input.shape[0]
+        # First pass, only one candidate per line : ["start_token"]
         predictions, _ = transformer(encoder_input,
                                      output,
                                      False,
                                      enc_padding_mask,
                                      combined_mask,
                                      dec_padding_mask)
+        predictions = predictions[:, -1, :]
+        log_prob = tf.squeeze(tf.nn.log_softmax(predictions, axis=-1))
 
-        # select the last word from the seq_len dimension
-        predictions = predictions[:, -1:, :]  # (batch_size, 1, vocab_size)
+        # Get beam_size best next candidates for each line
+        best_scores, best_idx = tf.nn.top_k(log_prob, beam_size, True)
+        # We now have batch_size * beam_size sequences to evaluate
+        scores = tf.reshape(best_scores, (-1, 1))
+        # We get the next word id for each of the top beam_size candidates
+        best_new_idx = tf.reshape(best_idx % transformer.target_vocab_size, (-1, 1))
 
-        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
+        # duplicate entries of encoder output and mask to compute all predictions in parallel
+        encoder_input = tf.repeat(encoder_input, beam_size, axis=0)
+        decoder_input = tf.repeat(output, beam_size, axis=0)
+        flags = tf.zeros((encoder_input.shape[0], 1), dtype=tf.int32)  # flags == 1 means sentence is finished
+        output = tf.concat([decoder_input, best_new_idx], axis=-1)  # all candidates are now [start_token, 1token]
+        # Other passes now start with beam_size candidates for each line
+        for i in range(max_length_pred):
+            old_length_penalty = length_penalty
+            length_penalty = ((5 + i + 2) / 6) ** alpha  # (5+len(decode)/6) ^ alpha
 
-        # concatenate the predicted_id to the output which is given to the decoder as its input.
-        output = tf.concat([output, predicted_id], axis=-1)
+            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
+            # Get predictions for next word for all candidates
+            predictions, _ = transformer(encoder_input,
+                                         output,
+                                         False,
+                                         enc_padding_mask,
+                                         combined_mask,
+                                         dec_padding_mask)
+            predictions = predictions[:, -1:, :].numpy()
+            # give max likelihood to end_token if sentence is already finished
+            predictions[:, :, -1] = tf.where(flags == 1, 10e9, predictions[:, :, -1])
 
-    # TODO re-add attention weights as output if we want to print them
+            # give min likelihood to end_token if min_length sententence is not reached
+            if i < min_length_pred:
+                predictions[:, :, -1] = -10e9
+            # predicted token should never be 0 (used for passing)
+            predictions[:, :, 0] = -10e9
+
+            # old scores to keep for finished sentences
+            old_scores = scores + tf.squeeze(tf.nn.log_softmax(predictions, axis=-1))
+
+            # Compute score for new candidates
+            new_scores = (scores * old_length_penalty +
+                          tf.squeeze(tf.nn.log_softmax(predictions, axis=-1))) / length_penalty
+
+            # Keep old score for finished sentences and new score for new ones
+            scores = tf.where(flags == 1, old_scores, new_scores)
+
+            # Compute score of all possible new candidates and keep beam_size bests for each entries
+            best_scores, best_idx = tf.nn.top_k(tf.reshape(scores, (batch_size, -1)), beam_size, True)
+            scores = tf.reshape(best_scores, (-1, 1))
+
+            # Get index of candidates that produced the best scores
+            best_start_idx = best_idx // transformer.target_vocab_size
+            start_correction = tf.reshape(tf.convert_to_tensor(range(batch_size), dtype=tf.int32) * beam_size, (-1, 1))
+            best_start_idx = tf.reshape(start_correction + best_start_idx, (-1, 1))
+
+            # Get index of next word for each best scores
+            best_new_idx = tf.reshape(best_idx % transformer.target_vocab_size, (-1, 1))
+
+            # Create new candidates from concatenation of previous candidates and next words
+            output = tf.concat([tf.gather_nd(output, best_start_idx), best_new_idx], axis=-1)
+            # Update flags to know which candidates are complete
+            flags = tf.where(best_new_idx == [end_token],
+                             tf.ones(flags.shape, dtype=tf.int32),
+                             flags)
+            # stop if all candidates are completed
+            if tf.reduce_sum(flags).numpy() == encoder_input.shape[0]:
+                print(f"all candidates completed at {i} / {max_length_pred}")
+                break
+
+        # get best of the beam_size candidates for each entry (first of beam_size candidates for each entry)
+        output = tf.reshape(output, (batch_size, beam_size, -1))[:, 0]
+    else:
+        for _ in range(max_length_pred):
+            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(encoder_input, output)
+            # predictions.shape == (batch_size, seq_len, vocab_size)
+            predictions, _ = transformer(encoder_input,
+                                         output,
+                                         False,
+                                         enc_padding_mask,
+                                         combined_mask,
+                                         dec_padding_mask)
+
+            # select the last word from the seq_len dimension
+            predictions = predictions[:, -1:, :]  # (batch_size, 1, vocab_size)
+
+            predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
+
+            # concatenate the predicted_id to the output which is given to the decoder as its input.
+            output = tf.concat([output, predicted_id], axis=-1)
     return output
 
 
@@ -271,9 +367,9 @@ def plot_attention_weights(attention, sentence, result, layer, tokenizer_source,
     plt.show()
 
 
-def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
-              tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
-              transformer: Transformer, plot: str = "") -> str:
+def translate_string(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTextEncoder,
+                     tokenizer_target: tfds.features.text.SubwordTextEncoder, max_length_pred: int,
+                     transformer: Transformer, plot: str = "") -> str:
     """
     Deprecated, still works for a single example and can plot attention
 
@@ -288,10 +384,10 @@ def translate(inp_sentence: str, tokenizer_source: tfds.features.text.SubwordTex
     """
     result, attention_weights = evaluate_old(inp_sentence, tokenizer_source, tokenizer_target,
                                              max_length_pred, transformer)
-
     predicted_sentence = tokenizer_target.decode([i for i in result if i < tokenizer_target.vocab_size])
     if plot:
         plot_attention_weights(attention_weights, inp_sentence, result, plot, tokenizer_source, tokenizer_target)
+
     return predicted_sentence
 
 
@@ -338,6 +434,7 @@ def _trim_and_decode(ids: List[int], tokenizer: tfds.features.text.SubwordTextEn
     :return: Decoded sentence
     """
     end_token = tokenizer.vocab_size + 1
+    ids = list(filter(lambda a: a != 0, ids))  # remove 0s (shouldn't be any but in case)
     try:
         # get index of first end token
         index = list(ids).index(end_token)
@@ -350,15 +447,20 @@ def translate_file(transformer: Transformer,
                    tokenizer_source: tfds.features.text.SubwordTextEncoder,
                    tokenizer_target: tfds.features.text.SubwordTextEncoder,
                    input_file: str,
+                   beam_size: Optional[int],
+                   alpha: Optional[float],
                    batch_size: int = 32,
                    print_all_translations: bool = True,
-                   max_lines_process: Optional[int] = None) -> Tuple:
+                   max_lines_process: Optional[int] = None
+                   ) -> Tuple:
     """
     Translates the sentences in input file to target language
     :param transformer: Trained Transformer model
     :param tokenizer_source: Source language tokenizer
     :param tokenizer_target: Target language tokenizer
     :param input_file: Path to input file
+    :param beam_size: Size of beam for beam search
+    :param alpha: alpha parameter for beam search
     :param batch_size: Batch size
     :param print_all_translations: Will print first translated sentence of every batch if True
     :param max_lines_process: Will translate only the first max_lines_process from input file
@@ -391,7 +493,7 @@ def translate_file(transformer: Transformer,
 
     translations = []
     for i, input_seq in enumerate(input_fn()):
-        predictions = evaluate(input_seq, tokenizer_target, transformer)
+        predictions = evaluate(input_seq, tokenizer_target, transformer, beam_size, alpha)
         for prediction in predictions:
             translation = _trim_and_decode(prediction, tokenizer_target)
             translations.append(translation)
@@ -401,4 +503,5 @@ def translate_file(transformer: Transformer,
             print(f"\tInput: {sorted_inputs[i*batch_size]}")
             print(f"\tOutput: {translations[i*batch_size]}\n")
             print("=" * 100)
+
     return translations, sorted_keys
