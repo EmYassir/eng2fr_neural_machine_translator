@@ -10,7 +10,7 @@ CODE_FOLDER="${FOLDER}/ift6759_project2"
 input_file_path=${1}
 target_file_path=${2}
 print_all_scores=${3}
-config_file="transformer_eval_cfg.json"
+config_file="config_files/transformer_eval_cfg.json"
 
 if [ -z "${input_file_path}" ]; then
       echo "Error: \$input_file_path argument is empty"

@@ -47,22 +47,44 @@ def generate_predictions(
     """
     start = time.time()
     tf.print(f"Using config_file={config_file}")
-    config_path = os.path.join(project_root(), "config_files", config_file)
+    if os.path.exists(config_file):
+        config_path = config_file
+    else:
+        # if not a path, check project folder
+        config_path = os.path.join(project_root(), config_file)
+
     assert os.path.isfile(config_path), f"invalid config file: {config_path}"
 
     with open(config_path, "r") as config_f:
         config = json.load(config_f)
 
-    debug = config["debug"]  # Write predictions to debug_predictions if True
-    beam_size = config["beam_size"]
-    alpha = config["alpha"]
+    if "debug" not in config:
+        tf.print(f"Warning: debug not in config -> Defaulting to False")
+        debug = False
+    else:
+        debug = config["debug"]  # Write predictions to debug_predictions if True
+    if "beam_size" not in config:
+        tf.print(f"Warning: beam_size not in config -> Defaulting to None")
+        beam_size = None
+    else:
+        beam_size = config["beam_size"]
 
+    if "alpha" not in config:
+        tf.print(f"Warning: alpha not in config -> Defaulting to None")
+        alpha = None
+    else:
+        alpha = config["alpha"]
     tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
     tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
     checkpoint_path_best = os.path.join(saved_path, config["checkpoint_path_best"])
-    translation_batch_size = config["translation_batch_size"]
+    if "translation_batch_size" not in config:
+        tf.print(f"Warning: translation_batch_size not in config -> Defaulting to 32")
+        translation_batch_size = 32
+    else:
+        translation_batch_size = config["translation_batch_size"]
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
     tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
+
     transformer = load_transformer(config, tokenizer_source, tokenizer_target)
 
     ckpt = tf.train.Checkpoint(transformer=transformer)
@@ -77,12 +99,6 @@ def generate_predictions(
     if max_lines_process is not None:
         num_lines = min(num_lines, max_lines_process)
 
-    tf.print(f"Translating a total of {num_lines} sentences")
-    results = []
-
-    num_lines = sum(1 for _ in open(input_file_path))
-    if max_lines_process is not None:
-        num_lines = min(num_lines, max_lines_process)
     tf.print(f"Translating a total of {num_lines} sentences")
 
     # Get translations in order of sentences length and dict to re-order them later
@@ -129,8 +145,8 @@ def main():
     parser.add_argument('--target-file-path', type=str, help='path to target (reference) file', required=True)
     parser.add_argument('--input-file-path', type=str, help='path to input file', required=True)
     parser.add_argument('--config_file', type=str,
-                        help='name of config file in directory config_files/',
-                        default="transformer_eval_cfg.json")
+                        help='path to config file',
+                        default=os.path.join("config_files", "transformer_eval_cfg.json"))
     parser.add_argument('--saved_path', type=str, help='path to saved models/tokenizers', default=project_root())
     parser.add_argument('--print-all-scores', help='will print one score per sentence',
                         action='store_true')

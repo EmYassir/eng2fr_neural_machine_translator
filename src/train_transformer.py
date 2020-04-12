@@ -19,6 +19,7 @@ from src.utils.data_utils import (build_tokenizer, create_transformer_dataset,
 from src.utils.tensorboard_utils import get_summary_tf, hparams_transformer
 from src.utils.transformer_utils import (CustomSchedule, create_masks,
                                          load_transformer)
+from src.evaluator import generate_predictions, compute_bleu
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -49,7 +50,8 @@ def train_transformer(
         config_path: str,
         data_path: str,
         save_path: str,
-        restore_checkpoint: bool
+        restore_checkpoint: bool,
+        print_all_scores: bool = False
 ) -> None:
     """
     Train the Transformer model
@@ -61,9 +63,11 @@ def train_transformer(
         config: ConfigTrainTransformer = json.load(f_in)
 
     num_examples = config["num_examples"]  # set to a smaller number for debugging if needed
+    num_synth_examples = config["num_synth_examples"]
 
     source_unaligned = os.path.join(data_path, config["source_unaligned"])
     source_training = os.path.join(data_path, config["source_training"])
+    source_synth_training = os.path.join(data_path, config["source_synth_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_lang_model_path = config["source_lang_model"]
@@ -71,6 +75,7 @@ def train_transformer(
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
+    target_synth_training = os.path.join(data_path, config["target_synth_training"])
     target_validation = os.path.join(data_path, config["target_validation"])
     target_lang_model_path = config["target_lang_model"]
 
@@ -122,8 +127,11 @@ def train_transformer(
 
         return result_source, result_target
 
-    train_examples = create_transformer_dataset(source_training, target_training, num_examples)
-    validation_examples = create_transformer_dataset(source_validation, target_validation, None)
+    train_examples = create_transformer_dataset(
+        source_training, target_training, source_synth_training, target_synth_training,
+        num_examples, num_synth_examples
+    )
+    validation_examples = create_transformer_dataset(source_validation, target_validation)
 
     train_preprocessed = (
         # cache the dataset to memory to get a speedup while reading from it.
@@ -217,7 +225,12 @@ def train_transformer(
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    train_summary_writer, val_summary_writer = get_summary_tf(save_path, hparams_transformer(config))
+    n_train_examples = int(tf.data.experimental.cardinality(train_examples).numpy())
+    tf.print(f"Total of {n_train_examples} training examples")
+    train_summary_writer, val_summary_writer = get_summary_tf(
+        save_path, hparams_transformer(config, n_train_examples)
+    )
+
     best_val_accuracy = -1
     for epoch in range(epochs):
         start = time.time()
@@ -258,6 +271,12 @@ def train_transformer(
         tf.print(f"Epoch {epoch + 1} Loss {train_loss.result():.4f} Accuracy {train_accuracy.result():.4f}")
 
         tf.print(f"Time taken for 1 epoch: {time.time() - start} secs\n")
+
+    # Compute bleu score on best performing model
+    temp_file = os.path.join(project_root(), "temp_preds.txt")
+    generate_predictions(source_validation, temp_file, save_path, config_path)
+    compute_bleu(temp_file, target_validation, print_all_scores)
+    os.remove(temp_file)
 
 
 def main():
