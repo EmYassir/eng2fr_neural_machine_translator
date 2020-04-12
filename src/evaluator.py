@@ -13,7 +13,7 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
 
-from src.utils.transformer_utils import load_transformer, translate_file, translate
+from src.utils.transformer_utils import load_transformer, translate_file
 from src.utils.data_utils import project_root
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -54,6 +54,8 @@ def generate_predictions(
         config = json.load(config_f)
 
     debug = config["debug"]  # Write predictions to debug_predictions if True
+    beam_size = config["beam_size"]
+    alpha = config["alpha"]
 
     tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
     tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
@@ -61,7 +63,6 @@ def generate_predictions(
     translation_batch_size = config["translation_batch_size"]
     tokenizer_source = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_source_path)
     tokenizer_target = tfds.features.text.SubwordTextEncoder.load_from_file(tokenizer_target_path)
-
     transformer = load_transformer(config, tokenizer_source, tokenizer_target)
 
     ckpt = tf.train.Checkpoint(transformer=transformer)
@@ -83,40 +84,14 @@ def generate_predictions(
     if max_lines_process is not None:
         num_lines = min(num_lines, max_lines_process)
     tf.print(f"Translating a total of {num_lines} sentences")
-    #
-    # # TODO check how to make this faster
-    # with open(input_file_path, "r", encoding="utf-8") as input_file:
-    #     count = 0
-    #     input_sentence = input_file.readline().strip()
-    #     while input_sentence:
-    #         if count % 10 == 0:
-    #             tf.print(f"{count}/{num_lines}")
-    #         # Predict maximum length of 1.5 times the input length
-    #         # TODO See if there's a better heuristic
-    #         max_length_pred = int(len(tokenizer_source.encode(input_sentence)) * 1.5)
-    #         result = translate(input_sentence, tokenizer_source, tokenizer_target, max_length_pred,
-    #                            transformer, beam_size=5, plot='')
-    #         results.append(result)
-    #         count += 1
-    #         input_sentence = input_file.readline()
-    #         if max_lines_process is not None and count >= num_lines:
-    #             break
-    #
-    # tf.print(f"Writing predictions to path = {pred_file_path}")
-    # with open(pred_file_path, "w", encoding="utf-8") as pred_file:
-    #     for result in results:
-    #         pred_file.write(result + '\n')
-    # if debug:
-    #     with open("debug_predictions_beam5", "w", encoding="utf-8") as debug_file:
-    #         for result in results:
-    #             debug_file.write(result + '\n')
 
     # Get translations in order of sentences length and dict to re-order them later
     results, sorted_keys = translate_file(transformer, tokenizer_source, tokenizer_target,
                                           input_file_path, batch_size=translation_batch_size,
-                                           max_lines_process=max_lines_process,
-                                          beam_size=5)
-    
+                                          max_lines_process=max_lines_process,
+                                          beam_size=beam_size,
+                                          alpha=alpha)
+
     # Write predictions in the right order
     if debug:
         with open("debug_predictions", "w", encoding="utf-8") as f_out:

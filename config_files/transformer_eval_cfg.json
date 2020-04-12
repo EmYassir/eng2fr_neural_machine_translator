@@ -7,7 +7,9 @@
   "num_heads": 2,
   "dropout_rate": 0.1,
   "translation_batch_size": 32,
-  "checkpoint_path_best": "checkpoints/transformer_augmented_40k/best",
+  "checkpoint_path_best": "checkpoints/transformer_augmented_120k/best",
   "tokenizer_source_path": "tokenizer/tokenizer_en.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_fr.save"
+  "tokenizer_target_path": "tokenizer/tokenizer_fr.save",
+  "beam_size": 5,
+  "alpha": 0.6
 }

@@ -9,5 +9,7 @@
   "translation_batch_size": 32,
   "checkpoint_path_best": "checkpoints/transformer/back/best",
   "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_en.save"
+  "tokenizer_target_path": "tokenizer/tokenizer_en.save",
+  "beam_size": null,
+  "alpha": null
 }
