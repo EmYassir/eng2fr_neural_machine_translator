@@ -16,7 +16,9 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
+from src.utils.transformer_utils import create_masks
 from tqdm import tqdm
+
 
 # The following config setting is necessary to work on my local RTX2070 GPU
 # Comment if you suspect it's causing trouble
@@ -175,6 +177,10 @@ def main() -> None:
 
         return tf.reduce_mean(loss_)
 
+    def softargmax(x, beta=1e10):
+        x_range = tf.range(x.shape.as_list()[-1], dtype=x.dtype)
+        return tf.reduce_sum(tf.nn.softmax(x*beta) * x_range, axis=-1)
+
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='train_accuracy')
@@ -218,28 +224,47 @@ def main() -> None:
 
     @tf.function(input_signature=train_step_signature)
     def train_step(inp, tar):
-        inp_real = inp[:, 1:]
+        tar_inp = tar[:, :-1]
+        tar_real = inp[:, 1:]
         with tf.GradientTape() as tape:
-            predictions, _ = autoencoder(inp, tar)
-            print('############################# TRAIN STEEEEEEEEEEEEEEEEEEEEP')
-            loss = lambda_factor * loss_function(inp_real, predictions)
-            tf.print(f'Gradien tape == {tape}')
-        tf.print(f'#(autoencoder.trainable_variables) = {len(autoencoder.trainable_variables)}')
-        tf.print(f'#(autoencoder.encoder.trainable_variables) = {len(autoencoder.encoder.trainable_variables)}')
-        tf.print(f'#(autoencoder.decoder.trainable_variables) = {len(autoencoder.decoder.trainable_variables)}')
-        gradients = tape.gradient(loss, autoencoder.trainable_variables)
+            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+            # Getting translations
+            intermediate_logits, _ = autoencoder.encoder(inp, tar_inp, False,
+                                                         enc_padding_mask,
+                                                         combined_mask,
+                                                         dec_padding_mask)
+            intermediate_predictions = softargmax(intermediate_logits)
+            # Masks
+            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(intermediate_predictions, tar_real)
+            predictions, _ = autoencoder.decoder(intermediate_predictions, tar_real,
+                                                 True, enc_padding_mask, combined_mask,
+                                                 dec_padding_mask)
+            loss = lambda_factor * loss_function(tar_real, predictions)
+            gradients = tape.gradient(loss, autoencoder.trainable_variables)
         optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
-
         train_loss(loss)
-        train_accuracy(inp_real, predictions)
+        train_accuracy(tar_real, predictions)
 
     @tf.function(input_signature=train_step_signature)
     def validate(inp, tar):
-        inp_real = inp[:, 1:]
-        predictions = autoencoder(inp, tar)
-        loss = lambda_factor * loss_function(inp_real, predictions)
+        tar_inp = tar[:, :-1]
+        tar_real = inp[:, 1:]
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+        # Getting translations
+        intermediate_logits, _ = autoencoder.encoder(inp, tar_inp, False, enc_padding_mask,
+                                                     combined_mask, dec_padding_mask)
+        intermediate_predictions = softargmax(intermediate_logits)
+
+        # Masks
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(intermediate_predictions,
+                                                                         tar_real)
+        predictions, _ = autoencoder.decoder(intermediate_predictions, tar_real,
+                                             True, enc_padding_mask, combined_mask,
+                                             dec_padding_mask)
+
+        loss = lambda_factor * loss_function(tar_real, predictions)
         val_loss(loss)
-        val_accuracy(inp_real, predictions)
+        val_accuracy(tar_real, predictions)
 
     train_summary_writer, val_summary_writer = get_summary_tf(save_path)
     best_val_accuracy = 0

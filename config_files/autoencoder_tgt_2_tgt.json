@@ -1,7 +1,7 @@
 {
   "num_examples": 100,
   "batch_size": 64,
-  "epochs": 10,
+  "epochs": 1,
   "lambda_factor": 1.0,
   "source_unaligned": "data/unaligned.fr",
   "source_training": "data/no_punctuation/unaligned_train.fr",
