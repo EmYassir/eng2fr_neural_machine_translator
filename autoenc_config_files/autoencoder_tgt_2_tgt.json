@@ -1,7 +1,7 @@
 {
   "num_examples": 100,
   "batch_size": 64,
-  "epochs": 1,
+  "epochs": 10,
   "lambda_factor": 1.0,
   "source_unaligned": "data/unaligned.fr",
   "source_training": "data/no_punctuation/unaligned_train.fr",
@@ -13,6 +13,6 @@
   "target_target_vocab_size": 8192,
   "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
   "tokenizer_target_path": "tokenizer/tokenizer_en.save",
-  "encoder_cfg_path": "config_files/autoenc_trans_eval_back_cfg.json",
-  "decoder_cfg_path": "config_files/autoenc_trans_eval_cfg.json"
+  "encoder_cfg_path": "autoenc_config_files/autoenc_trans_eval_back_cfg.json",
+  "decoder_cfg_path": "autoenc_config_files/autoenc_trans_eval_cfg.json"
 }

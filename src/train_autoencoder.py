@@ -240,7 +240,8 @@ def main() -> None:
                                                  True, enc_padding_mask, combined_mask,
                                                  dec_padding_mask)
             loss = lambda_factor * loss_function(tar_real, predictions)
-            gradients = tape.gradient(loss, autoencoder.trainable_variables)
+            gradients = tape.gradient(loss, autoencoder.trainable_variables,
+                                      unconnected_gradients=tf.UnconnectedGradients.ZERO)
         optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
         train_loss(loss)
         train_accuracy(tar_real, predictions)
