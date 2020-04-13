@@ -59,11 +59,21 @@ def generate_predictions(
         config = json.load(config_f)
 
     if "debug" not in config:
-        tf.print(f"Warning: debug not in config -> Defaulting to 32")
+        tf.print(f"Warning: debug not in config -> Defaulting to False")
         debug = False
     else:
         debug = config["debug"]  # Write predictions to debug_predictions if True
+    if "beam_size" not in config:
+        tf.print(f"Warning: beam_size not in config -> Defaulting to None")
+        beam_size = None
+    else:
+        beam_size = config["beam_size"]
 
+    if "alpha" not in config:
+        tf.print(f"Warning: alpha not in config -> Defaulting to None")
+        alpha = None
+    else:
+        alpha = config["alpha"]
     tokenizer_source_path = os.path.join(saved_path, config["tokenizer_source_path"])
     tokenizer_target_path = os.path.join(saved_path, config["tokenizer_target_path"])
     checkpoint_path_best = os.path.join(saved_path, config["checkpoint_path_best"])
@@ -90,10 +100,14 @@ def generate_predictions(
         num_lines = min(num_lines, max_lines_process)
 
     tf.print(f"Translating a total of {num_lines} sentences")
+
     # Get translations in order of sentences length and dict to re-order them later
     results, sorted_keys = translate_file(transformer, tokenizer_source, tokenizer_target,
                                           input_file_path, batch_size=translation_batch_size,
-                                          max_lines_process=max_lines_process)
+                                          max_lines_process=max_lines_process,
+                                          beam_size=beam_size,
+                                          alpha=alpha)
+
     # Write predictions in the right order
     if debug:
         with open("debug_predictions", "w", encoding="utf-8") as f_out:

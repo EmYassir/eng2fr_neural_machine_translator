@@ -15,6 +15,8 @@ class ConfigEvalTransformer(TypedDict):
     tokenizer_source_path: str
     tokenizer_target_path: str
     translation_batch_size: int
+    beam_size: Optional[int]
+    alpha: Optional[float]
 
 
 class ConfigTrainTransformer(TypedDict):
