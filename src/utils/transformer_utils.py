@@ -479,7 +479,7 @@ def translate_file(transformer: Transformer,
         for j, line in enumerate(sorted_inputs):
             if j % batch_size == 0:
                 batch_num = (j // batch_size) + 1
-                print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
+                tf.print(f"Decoding batch {batch_num} out of {num_decode_batches}.")
             yield _encode_and_add_tokens(line, tokenizer_source)
 
     def input_fn() -> tf.data.Dataset:
@@ -499,9 +499,9 @@ def translate_file(transformer: Transformer,
             translations.append(translation)
 
         if print_all_translations:
-            print("Translating:")
-            print(f"\tInput: {sorted_inputs[i*batch_size]}")
-            print(f"\tOutput: {translations[i*batch_size]}\n")
-            print("=" * 100)
+            tf.print("Translating:")
+            tf.print(f"\tInput: {sorted_inputs[i*batch_size]}")
+            tf.print(f"\tOutput: {translations[i*batch_size]}\n")
+            tf.print("=" * 100)
 
     return translations, sorted_keys
