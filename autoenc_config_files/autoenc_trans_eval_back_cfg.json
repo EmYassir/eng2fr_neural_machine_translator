@@ -10,5 +10,7 @@
   "checkpoint_path": "checkpoints/back_translator_autoencoder/retrain",
   "checkpoint_path_best": "checkpoints/back_translator_autoencoder/best",
   "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
-  "tokenizer_target_path": "tokenizer/tokenizer_en.save"
+  "tokenizer_target_path": "tokenizer/tokenizer_en.save",
+  "beam_size": null,
+  "alpha": null
 }
