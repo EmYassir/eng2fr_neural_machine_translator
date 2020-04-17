@@ -506,6 +506,7 @@ def translate_file(transformer: Transformer,
 
     return translations, sorted_keys
 
+
 def softargmax(x, beta=1e10):
     """
     Differentiable 'Argmax'. Useful for back-propagation.

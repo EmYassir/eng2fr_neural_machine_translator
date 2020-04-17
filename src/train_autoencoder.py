@@ -16,7 +16,6 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
-from src.utils.transformer_utils import create_masks
 from tqdm import tqdm
 
 
