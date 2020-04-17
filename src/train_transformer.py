@@ -67,8 +67,7 @@ def train_transformer(
 
     source_unaligned = os.path.join(data_path, config["source_unaligned"])
     source_training = os.path.join(data_path, config["source_training"])
-    source_synth_training = config["source_synth_training"]
-    source_synth_training = os.path.join(data_path, source_synth_training)
+    source_synth_training = os.path.join(data_path, config["source_synth_training"])
     source_validation = os.path.join(data_path, config["source_validation"])
     source_target_vocab_size = config["source_target_vocab_size"]
     source_lang_model_path = config["source_lang_model"]
@@ -76,8 +75,7 @@ def train_transformer(
 
     target_unaligned = os.path.join(data_path, config["target_unaligned"])
     target_training = os.path.join(data_path, config["target_training"])
-    target_synth_training = config["target_synth_training"]
-    target_synth_training = os.path.join(data_path, target_synth_training)
+    target_synth_training = os.path.join(data_path, config["target_synth_training"])
     target_validation = os.path.join(data_path, config["target_validation"])
     target_lang_model_path = config["target_lang_model"]
 
@@ -193,7 +191,9 @@ def train_transformer(
     def train_step(inp, tar):
         tar_inp = tar[:, :-1]
         tar_real = tar[:, 1:]
+
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+
         with tf.GradientTape() as tape:
             predictions, _ = transformer(inp, tar_inp,
                                          True,
