@@ -16,6 +16,8 @@ from tensorflow.python.framework.errors_impl import NotFoundError
 from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
+from src.train_transformer import load_tokenizer
+from src.train_transformer import get_summary_tf
 from tqdm import tqdm
 
 
@@ -26,32 +28,6 @@ tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-
-
-def load_tokenizer(name: str, path: str, input_files: Union[str, List[str]], vocab_size: int):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    try:
-        tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
-        tf.print(f"Loaded {name} tokenizer from {path}")
-    except NotFoundError:
-        tf.print(f"Could not find {name} tokenizer in {path}, building tokenizer...")
-        tokenizer = build_tokenizer(input_files, target_vocab_size=vocab_size)
-        tokenizer.save_to_file(path)
-        tf.print(f"{name} tokenizer saved to {path}")
-        # Reload to avoid weird error about mismatch vocabulary size
-        tokenizer = tfds.features.text.SubwordTextEncoder.load_from_file(path)
-    return tokenizer
-
-
-def get_summary_tf(save_path: str):
-    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = os.path.join(logs_dir, current_time, 'train')
-    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
-    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
-    return train_summary_writer, val_summary_writer
-
 
 def main() -> None:
     """
