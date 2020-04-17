@@ -1,0 +1,16 @@
+{
+  "debug": true,
+  "num_examples": null,
+  "num_layers": 3,
+  "d_model": 256,
+  "dff": 1024,
+  "num_heads": 2,
+  "dropout_rate": 0.1,
+  "translation_batch_size": 32,
+  "checkpoint_path": "checkpoints/back_translator_autoencoder/retrain",
+  "checkpoint_path_best": "checkpoints/back_translator_autoencoder/best",
+  "tokenizer_source_path": "tokenizer/tokenizer_fr.save",
+  "tokenizer_target_path": "tokenizer/tokenizer_en.save",
+  "beam_size": null,
+  "alpha": null
+}
