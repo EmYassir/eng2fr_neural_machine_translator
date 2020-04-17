@@ -505,3 +505,14 @@ def translate_file(transformer: Transformer,
             print("=" * 100)
 
     return translations, sorted_keys
+
+def softargmax(x, beta=1e10):
+    """
+    Differentiable 'Argmax'. Useful for back-propagation.
+    :param x: tensor
+    :param beta: Parameter for numerical correctness
+    :return:Tensor containing 'continuous' indexes for the last dimension.
+    Equivalent to Argmax, different in the sens the returned values are real.
+    """
+    x_range = tf.range(x.shape.as_list()[-1], dtype=x.dtype)
+    return tf.reduce_sum(tf.nn.softmax(x*beta) * x_range, axis=-1)

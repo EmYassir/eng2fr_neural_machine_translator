@@ -1,6 +1,7 @@
 import tensorflow as tf
 from src.utils.transformer_utils import load_transformer
 from src.utils.transformer_utils import create_masks
+from src.utils.transformer_utils import softargmax
 
 
 class AutoEncoder(tf.keras.Model):
@@ -22,8 +23,8 @@ class AutoEncoder(tf.keras.Model):
         # Getting translations
         intermediate_logits, w1 = self.encoder(inp, tar_inp, True, enc_padding_mask,
                                                combined_mask, dec_padding_mask)
-        intermediate_predictions = self.softargmax(intermediate_logits)
-        print(intermediate_predictions)
+        # Differentiable argmax for backprop?
+        intermediate_predictions = softargmax(intermediate_logits)
 
         # Masks
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(intermediate_predictions, tar_real)

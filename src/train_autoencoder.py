@@ -177,10 +177,6 @@ def main() -> None:
 
         return tf.reduce_mean(loss_)
 
-    def softargmax(x, beta=1e10):
-        x_range = tf.range(x.shape.as_list()[-1], dtype=x.dtype)
-        return tf.reduce_sum(tf.nn.softmax(x*beta) * x_range, axis=-1)
-
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
         name='train_accuracy')
@@ -227,19 +223,9 @@ def main() -> None:
         tar_inp = tar[:, :-1]
         tar_real = inp[:, 1:]
         with tf.GradientTape() as tape:
-            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-            # Getting translations
-            intermediate_logits, _ = autoencoder.encoder(inp, tar_inp, False,
-                                                         enc_padding_mask,
-                                                         combined_mask,
-                                                         dec_padding_mask)
-            intermediate_predictions = softargmax(intermediate_logits)
-            # Masks
-            enc_padding_mask, combined_mask, dec_padding_mask = create_masks(intermediate_predictions, tar_real)
-            predictions, _ = autoencoder.decoder(intermediate_predictions, tar_real,
-                                                 True, enc_padding_mask, combined_mask,
-                                                 dec_padding_mask)
+            predictions, _, _ = autoencoder(inp, tar, tar_inp, tar_real)
             loss = lambda_factor * loss_function(tar_real, predictions)
+            # TODO : Back prop not working!!!
             gradients = tape.gradient(loss, autoencoder.trainable_variables,
                                       unconnected_gradients=tf.UnconnectedGradients.ZERO)
         optimizer.apply_gradients(zip(gradients, autoencoder.trainable_variables))
@@ -250,19 +236,7 @@ def main() -> None:
     def validate(inp, tar):
         tar_inp = tar[:, :-1]
         tar_real = inp[:, 1:]
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
-        # Getting translations
-        intermediate_logits, _ = autoencoder.encoder(inp, tar_inp, False, enc_padding_mask,
-                                                     combined_mask, dec_padding_mask)
-        intermediate_predictions = softargmax(intermediate_logits)
-
-        # Masks
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(intermediate_predictions,
-                                                                         tar_real)
-        predictions, _ = autoencoder.decoder(intermediate_predictions, tar_real,
-                                             True, enc_padding_mask, combined_mask,
-                                             dec_padding_mask)
-
+        predictions, _, _ = autoencoder(inp, tar, tar_inp, tar_real)
         loss = lambda_factor * loss_function(tar_real, predictions)
         val_loss(loss)
         val_accuracy(tar_real, predictions)
