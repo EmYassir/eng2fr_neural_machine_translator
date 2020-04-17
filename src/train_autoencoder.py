@@ -6,14 +6,10 @@ import argparse
 import json
 import os
 import time
-import datetime
-from typing import Union, List
 
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from tensorflow.compat.v1 import ConfigProto, InteractiveSession
-from tensorflow.python.framework.errors_impl import NotFoundError
-from src.utils.data_utils import build_tokenizer, create_transformer_dataset, project_root
+from src.utils.data_utils import create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
 from src.train_transformer import load_tokenizer
@@ -28,6 +24,7 @@ tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+
 
 def main() -> None:
     """
