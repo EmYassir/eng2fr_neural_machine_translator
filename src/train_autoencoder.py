@@ -13,8 +13,8 @@ from src.utils.data_utils import create_transformer_dataset, project_root
 from src.utils.transformer_utils import CustomSchedule
 from src.models.Autoencoder import AutoEncoder
 from src.train_transformer import load_tokenizer
-from src.train_transformer import get_summary_tf
 from tqdm import tqdm
+import datetime
 
 
 # The following config setting is necessary to work on my local RTX2070 GPU
@@ -24,6 +24,19 @@ tf_config.gpu_options.allow_growth = True
 session = InteractiveSession(config=tf_config)
 
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+
+
+def get_summary_tensorboard(save_path: str):
+    """
+    Utility for tensorboard (currently not used)
+    """
+    logs_dir = os.path.join(save_path, 'logs', 'gradient_tape')
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = os.path.join(logs_dir, current_time, 'train')
+    valid_log_dir = os.path.join(logs_dir, current_time, 'valid')
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    val_summary_writer = tf.summary.create_file_writer(valid_log_dir)
+    return train_summary_writer, val_summary_writer
 
 
 def main() -> None:
@@ -213,7 +226,7 @@ def main() -> None:
         val_loss(loss)
         val_accuracy(tar_real, predictions)
 
-    train_summary_writer, val_summary_writer = get_summary_tf(save_path)
+    train_summary_writer, val_summary_writer = get_summary_tensorboard(save_path)
     best_val_accuracy = 0
 
     pbar = tqdm(total=epochs)
