@@ -208,7 +208,7 @@ def evaluate(encoder_input: tf.Tensor,
     # TODO Consider if there is a better heuristic
     # The higher max_additional_tokens, the longer it takes to evaluate. On the other side, a lower number risks
     # returning incomplete sentences.
-    max_additional_tokens = int(encoder_input.shape[1])
+    max_additional_tokens = int(0.5*encoder_input.shape[1])
     max_length_pred = encoder_input.shape[1] + max_additional_tokens
     # Set minimum length for predictions. WARNING, this might lead to bad results if there is a big difference
     # in length for input sentences in a minibatch. This should not be the case in the test set but could be in a
@@ -298,7 +298,6 @@ def evaluate(encoder_input: tf.Tensor,
                              flags)
             # stop if all candidates are completed
             if tf.reduce_sum(flags).numpy() == encoder_input.shape[0]:
-                print(f"all candidates completed at {i} / {max_length_pred}")
                 break
 
         # get best of the beam_size candidates for each entry (first of beam_size candidates for each entry)
