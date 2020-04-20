@@ -111,8 +111,11 @@ def generate_predictions(
     # Write predictions in the right order
     if debug:
         with open("debug_predictions", "w", encoding="utf-8") as f_out:
-            for index in range(len(sorted_keys)):
-                f_out.write(f"{results[sorted_keys[index]]}\n")
+            with open(input_file_path, "r") as f_in:
+                for index in range(len(results)):
+                    f_out.write(f"Input:{f_in.readline()}\n")
+                    f_out.write(f"Output: {results[sorted_keys[index]]}\n\n")
+                    f_out.write("-----------------------------------------------------------\n\n")
     tf.print(f"Writing predictions to path = {pred_file_path}")
     with open(pred_file_path, "w", encoding="utf-8") as f_out:
         for index in range(len(sorted_keys)):

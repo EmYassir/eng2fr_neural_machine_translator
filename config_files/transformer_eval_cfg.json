@@ -1,15 +1,15 @@
 {
-  "debug": true,
+  "debug": false,
   "num_examples": null,
-  "num_layers": 2,
+  "num_layers": 4,
   "d_model": 512,
   "dff": 2048,
-  "num_heads": 2,
+  "num_heads": 8,
   "dropout_rate": 0.1,
-  "translation_batch_size": 32,
-  "checkpoint_path_best": "checkpoints/transformer_augmented_120k/best",
+  "translation_batch_size": 48,
+  "checkpoint_path_best": "best_models/second_iteration_forward",
   "tokenizer_source_path": "tokenizer/tokenizer_en.save",
   "tokenizer_target_path": "tokenizer/tokenizer_fr.save",
-  "beam_size": 5,
+  "beam_size": 7,
   "alpha": 0.6
 }
