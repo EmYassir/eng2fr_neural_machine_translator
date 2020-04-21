@@ -7,7 +7,7 @@
   "num_heads": 8,
   "dropout_rate": 0.1,
   "translation_batch_size": 48,
-  "checkpoint_path_best": "best_models/second_iteration_forward",
+  "checkpoint_path_best": "../model/second_iteration_forward",
   "tokenizer_source_path": "tokenizer/tokenizer_en.save",
   "tokenizer_target_path": "tokenizer/tokenizer_fr.save",
   "beam_size": 7,
