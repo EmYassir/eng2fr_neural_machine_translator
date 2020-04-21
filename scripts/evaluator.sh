@@ -4,8 +4,7 @@
 #SBATCH --mem=4G
 #SBATCH --time=1:00:00
 
-FOLDER="/project/cq-training-1/project2/teams/team09"
-CODE_FOLDER="${FOLDER}/ift6759_project2"
+FOLDER="/project/cq-training-1/project2/submissions/team09/code"
 
 input_file_path=${1}
 target_file_path=${2}
@@ -25,7 +24,7 @@ fi
 source "${FOLDER}/venv/bin/activate"
 
 
-cd "${CODE_FOLDER}" || exit
+cd "${FOLDER}" || exit
 echo "Now in directory ${PWD}"
 
 if [ -z "${print_all_scores}" ]; then
